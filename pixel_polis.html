@@ -2972,7 +2972,6 @@ let currentRegionKey = null; // which region the player currently owns / is edit
 
 // ── Init ──────────────────────────────────────────────
 function initWorldMap() {
-  // Restore saved world from localStorage if it exists
   const saved = localStorage.getItem('pixel_polis_world');
   if (saved) {
     try {
@@ -2980,6 +2979,14 @@ function initWorldMap() {
       Object.assign(world.regions, parsed.regions || {});
     } catch(e) {}
   }
+
+  // If contract is deployed, wipe any locally-saved regions —
+  // ownership is on-chain only. Players must mint to own tiles.
+  if (isContractDeployed()) {
+    world.regions = {};
+    saveWorldState();
+  }
+
   renderWorldGrid();
 }
 
@@ -3199,6 +3206,11 @@ function openWorldMap() {
 }
 
 function exitWorldMap() {
+  // Only allow closing the map if a city is actually loaded
+  if (!currentRegionKey && !visitMode) {
+    showToast('Pick a tile to enter a city first!', null, null, '#ffd060');
+    return;
+  }
   document.getElementById('world-map-ui').classList.remove('active');
 }
 
@@ -3451,15 +3463,13 @@ function submitLogin() {
   if (!name) { input.style.borderColor='#ff6b6b'; return; }
   playerUsername = name;
   localStorage.setItem('pixel_polis_username', name);
-  // Update PLAYER_ID used by world.regions
-  // (can't reassign const — we use playerUsername everywhere instead)
   document.getElementById('login-modal').style.display = 'none';
-  // Tell server our name
   net.send({ type:'setName', name });
-  // Update city name display
   document.querySelector('.city-name').textContent = '■ ' + name + '\'s City';
-  document.getElementById('world-sub').textContent =
-    `Playing as ${name} | Click empty tile to found city | Click your city to enter`;
+  const sub = isContractDeployed()
+    ? `Playing as ${name} | Connect wallet → mint a tile (0.001 ETH) to start building`
+    : `Playing as ${name} | Click any empty tile to found your city`;
+  document.getElementById('world-sub').textContent = sub;
 }
 
 // Auto-skip login if username already saved
@@ -4333,6 +4343,9 @@ window.addEventListener('resize',()=>{
 
 updateDemandBars();
 updateUI();
+
+// Always start on the world map — player must pick/mint a tile to enter a city
+document.getElementById('world-map-ui').classList.add('active');
 </script>
 </body>
 </html>
