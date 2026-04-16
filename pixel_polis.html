@@ -3002,7 +3002,7 @@ function renderWorldGrid() {
       const isMyAccount = region && region.owner === (playerUsername || PLAYER_ID);
 
       if (onChain && isMyWallet) {
-        // My on-chain tile
+        // My on-chain tile — confirmed owner, can enter city
         el.classList.add('mine','wt-owned-me');
         const pop = region?.cityData?.population || onChain.pop || 0;
         const listLabel = onChain.forSale
@@ -3036,18 +3036,18 @@ function renderWorldGrid() {
         // Contract deployed — tile must be minted, not free claimed
         if (web3Enabled) {
           // Wallet connected — show mint button
-          el.innerHTML=`<div class="wt-icon">🌿</div><div class="wt-label">[${x},${z}]<br>0.01 ETH</div>`;
+          el.innerHTML=`<div class="wt-icon">🌿</div><div class="wt-label">[${x},${z}]<br>0.001 ETH</div>`;
           el.onclick=()=>mintTile(x,z);
         } else {
           // Wallet not connected — prompt to connect first
-          el.innerHTML=`<div class="wt-icon">🌿</div><div class="wt-label">[${x},${z}]<br>🦊 Connect wallet<br>to mint (0.01 ETH)</div>`;
+          el.innerHTML=`<div class="wt-icon">🌿</div><div class="wt-label">[${x},${z}]<br>🦊 Connect wallet<br>to mint (0.001 ETH)</div>`;
           el.onclick=()=>{
             showToast('Connect your wallet first!', null, null, '#ffd060');
             connectWallet();
           };
         }
 
-      } else if (region) {
+      } else if (region && !isContractDeployed()) {
         // Local game ownership (no contract)
         if (isMyAccount) {
           el.classList.add('mine');
@@ -3676,26 +3676,48 @@ async function loadAllTileOwners() {
 }
 
 // ── Mint a tile ────────────────────────────────────────
+// ── Mint a tile ────────────────────────────────────────
 async function mintTile(x, z) {
   if (!web3Enabled) {
-    showToast('Connect wallet first', null, null, '#ff8844'); return;
+    showToast('Connect wallet first', null, null, '#ff8844');
+    connectWallet();
+    return;
   }
   if (!tileContract) return;
   const key = `${x}_${z}`;
-  if (tileOwners[key]) { showToast('Tile already owned', null, null, '#ffaa44'); return; }
+
+  // Double-check on-chain — might have loaded since last render
+  try {
+    const info = await tileContract.getTileInfo(x, z);
+    if (info.owner !== ethers.ZeroAddress) {
+      // Already owned on-chain
+      if (info.owner.toLowerCase() === walletAddress?.toLowerCase()) {
+        showToast('You already own this tile!', null, null, '#4ddb88');
+        enterCity(x, z);
+      } else {
+        showToast('Tile already owned by someone else', null, null, '#ffaa44');
+        await loadAllTileOwners();
+        renderWorldGrid();
+      }
+      return;
+    }
+  } catch(e) {
+    console.warn('[web3] pre-mint check failed:', e.message);
+  }
 
   try {
-    showToast('Confirm in MetaMask…', null, null, '#ffd060');
+    showToast('Confirm 0.001 ETH in MetaMask…', null, null, '#ffd060');
     const tx = await tileContract.mint(x, z, {
       value: ethers.parseEther(MINT_PRICE_ETH)
     });
-    showToast('Transaction sent! Waiting…', null, null, '#ffd060');
+    showToast('Transaction sent — waiting for confirmation…', null, null, '#ffd060');
     await tx.wait();
+
     // Refresh on-chain ownership
     await loadAllTileOwners();
     showToast(`🎉 Tile [${x},${z}] is yours!`, null, null, '#4ddb88');
-    // Create region entry and enter the city
-    const key = `${x}_${z}`;
+
+    // Create game region
     const owner = playerUsername || PLAYER_ID;
     if (!world.regions[key]) {
       const cityNum = Object.keys(world.regions).length + 1;
@@ -3708,12 +3730,12 @@ async function mintTile(x, z) {
       net.send({ type:'claimRegion', key, name });
     }
     renderWorldGrid();
-    // Close world map and enter the city
     document.getElementById('world-map-ui').classList.remove('active');
     enterCity(x, z);
   } catch(e) {
     console.error('[web3] mint failed:', e);
-    showToast(e.reason || 'Transaction failed', null, null, '#ff6666');
+    const msg = e?.reason || e?.data?.message || e?.message || 'Transaction failed or rejected';
+    showToast(msg.slice(0, 60), null, null, '#ff6666');
   }
 }
 
