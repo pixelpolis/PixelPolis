@@ -3032,10 +3032,20 @@ function renderWorldGrid() {
           `${priceLabel}${raidBtn}`;
         el.onclick=()=>{ if(onChain.forSale) buyTile(x,z); else if(region) viewForeignCity(x,z); };
 
-      } else if (!onChain && isContractDeployed() && web3Enabled) {
-        // Empty — mintable on-chain
-        el.innerHTML=`<div class="wt-icon">🌿</div><div class="wt-label">[${x},${z}]<br>0.01 ETH</div>`;
-        el.onclick=()=>mintTile(x,z);
+      } else if (!onChain && isContractDeployed()) {
+        // Contract deployed — tile must be minted, not free claimed
+        if (web3Enabled) {
+          // Wallet connected — show mint button
+          el.innerHTML=`<div class="wt-icon">🌿</div><div class="wt-label">[${x},${z}]<br>0.01 ETH</div>`;
+          el.onclick=()=>mintTile(x,z);
+        } else {
+          // Wallet not connected — prompt to connect first
+          el.innerHTML=`<div class="wt-icon">🌿</div><div class="wt-label">[${x},${z}]<br>🦊 Connect wallet<br>to mint (0.01 ETH)</div>`;
+          el.onclick=()=>{
+            showToast('Connect your wallet first!', null, null, '#ffd060');
+            connectWallet();
+          };
+        }
 
       } else if (region) {
         // Local game ownership (no contract)
@@ -3546,10 +3556,10 @@ function handleRaided(msg) {
 
 // ── Contract config ────────────────────────────────────
 // Replace CONTRACT_ADDRESS after deploying Pixel_PolisTiles.sol
-const CONTRACT_ADDRESS = '0xa251E78F350e7c670b1D1c9560A5984E65066c67'; // ← paste deployed address here
+const CONTRACT_ADDRESS = '0x0000000000000000000000000000000000000000'; // ← paste deployed address here
 const CHAIN_ID         = 8453;   // Base mainnet (84532 = Base Sepolia testnet)
 const CHAIN_NAME       = 'Base';
-const MINT_PRICE_ETH   = '0.01';
+const MINT_PRICE_ETH   = '0.001';
 
 const CONTRACT_ABI = [
   'function mint(uint8 x, uint8 z) payable',
@@ -3681,12 +3691,26 @@ async function mintTile(x, z) {
     });
     showToast('Transaction sent! Waiting…', null, null, '#ffd060');
     await tx.wait();
-    // Refresh ownership
+    // Refresh on-chain ownership
     await loadAllTileOwners();
+    showToast(`🎉 Tile [${x},${z}] is yours!`, null, null, '#4ddb88');
+    // Create region entry and enter the city
+    const key = `${x}_${z}`;
+    const owner = playerUsername || PLAYER_ID;
+    if (!world.regions[key]) {
+      const cityNum = Object.keys(world.regions).length + 1;
+      const name = `${owner}'s City #${cityNum}`;
+      world.regions[key] = {
+        owner, name,
+        cityData: { tiles:[], money:200, population:0, dayTime:0.3, comStore:{}, indStore:{} }
+      };
+      saveWorldState();
+      net.send({ type:'claimRegion', key, name });
+    }
     renderWorldGrid();
-    showToast(`Tile [${x},${z}] is yours!`, null, null, '#4ddb88');
-    // Auto-claim in game world
-    claimRegion(x, z);
+    // Close world map and enter the city
+    document.getElementById('world-map-ui').classList.remove('active');
+    enterCity(x, z);
   } catch(e) {
     console.error('[web3] mint failed:', e);
     showToast(e.reason || 'Transaction failed', null, null, '#ff6666');
