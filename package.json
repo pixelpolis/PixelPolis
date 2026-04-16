@@ -1,0 +1,12 @@
+{
+  "name": "pixepolis",
+  "version": "1.0.0",
+  "description": "Pixepolis voxel city sim — single-player HTML or multiplayer via Node.js",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}

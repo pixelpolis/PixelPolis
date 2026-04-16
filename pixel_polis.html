@@ -1,0 +1,4283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pixel_Polis</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { overflow:hidden; background:#0d1117; font-family:'Courier New',monospace; }
+
+/* ── HUD ── */
+#hud {
+  position:absolute; top:12px; left:12px;
+  background:rgba(5,8,15,0.90); border:1px solid rgba(100,180,255,0.2);
+  border-radius:10px; padding:14px 16px; color:#c9d8f0; width:244px;
+  backdrop-filter:blur(6px);
+}
+.city-name {
+  font-size:15px; font-weight:700; color:#7eb8ff;
+  letter-spacing:2px; text-transform:uppercase;
+  margin-bottom:10px; padding-bottom:8px;
+  border-bottom:1px solid rgba(100,180,255,0.15);
+}
+.stat-row { display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px; }
+.stat-row .lbl { color:#6888aa; }
+.stat-row .val { color:#e0eeff; font-weight:600; }
+.val.green  { color:#4ddb88; }
+.val.yellow { color:#ffd060; }
+.val.red    { color:#ff6b6b; }
+.val.cyan   { color:#74c0fc; }
+.divider { border-top:1px solid rgba(100,180,255,0.1); margin:9px 0; }
+
+/* demand bars */
+.demand-section { margin-bottom:6px; }
+.demand-label { font-size:10px; color:#556677; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px; }
+.demand-row { display:flex; align-items:center; gap:7px; margin-bottom:4px; font-size:11px; }
+.demand-row .dk { color:#6888aa; width:12px; }
+.demand-bar-bg { flex:1; height:7px; background:rgba(255,255,255,0.07); border-radius:4px; overflow:hidden; }
+.demand-bar-fill { height:100%; border-radius:4px; transition:width 0.6s; }
+.demand-row .dv { color:#c9d8f0; width:28px; text-align:right; }
+
+/* power row */
+.power-row { display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px; }
+.power-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:middle; }
+
+.mode-label { font-size:10px; color:#556677; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+.btn-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-bottom:6px; }
+.btn-grid button, #btn-demolish {
+  background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12);
+  border-radius:6px; color:#a0b8d0; font-size:11px;
+  font-family:'Courier New',monospace; padding:6px 4px;
+  cursor:pointer; transition:background 0.15s,border-color 0.15s,color 0.15s; text-align:center;
+}
+.btn-grid button:hover,#btn-demolish:hover { background:rgba(100,180,255,0.12); color:#fff; }
+.btn-grid button.active { background:rgba(80,140,255,0.25); border-color:#5a8fff; color:#aad0ff; }
+#btn-power.active { background:rgba(255,220,50,0.2); border-color:#ffd700; color:#ffe87a; }
+#btn-ind.active   { background:rgba(200,100,30,0.25); border-color:#cc6622; color:#ffaa66; }
+#btn-demolish { width:100%; background:rgba(255,60,60,0.07); border-color:rgba(255,60,60,0.2); color:#ff8888; }
+#btn-demolish:hover { background:rgba(255,60,60,0.18); }
+#btn-demolish.active { background:rgba(255,60,60,0.3); border-color:#ff4444; color:#ffaaaa; }
+
+#info-panel {
+  margin-top:10px; background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.07); border-radius:6px;
+  padding:8px 10px; font-size:11px; color:#7a9bbf; min-height:44px; line-height:1.8;
+}
+#info-panel .tile-title { color:#a0c8ff; font-weight:700; font-size:12px; margin-bottom:2px; }
+#upgrade-btn {
+  display:none; width:100%; margin-top:8px;
+  background:rgba(60,200,100,0.12); border:1px solid rgba(60,200,100,0.3);
+  border-radius:6px; color:#6dffa0; font-size:11px;
+  font-family:'Courier New',monospace; padding:7px; cursor:pointer; transition:background 0.15s;
+}
+#upgrade-btn:hover { background:rgba(60,200,100,0.25); }
+#upgrade-btn:disabled { opacity:0.35; cursor:not-allowed; }
+
+/* ── Toasts ── */
+.toast {
+  position:absolute; font-size:12px; font-family:'Courier New',monospace;
+  font-weight:700; pointer-events:none;
+  animation:floatUp 1.3s ease-out forwards;
+}
+@keyframes floatUp { 0%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-40px)} }
+
+/* ── Day/Night overlay ── */
+#time-bar {
+  position:absolute; top:12px; right:12px;
+  background:rgba(5,8,15,0.82); border:1px solid rgba(100,180,255,0.15);
+  border-radius:8px; padding:8px 12px; font-size:11px; color:#6888aa;
+  font-family:'Courier New',monospace; min-width:120px; text-align:center;
+}
+#time-label { font-size:13px; font-weight:700; color:#e0eeff; margin-bottom:4px; }
+#time-track { width:100%; height:6px; background:rgba(255,255,255,0.07); border-radius:3px; overflow:hidden; }
+#time-fill  { height:100%; border-radius:3px; transition:width 0.1s; }
+
+/* ── Disaster banner ── */
+#disaster-banner {
+  display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  background:rgba(180,30,30,0.92); border:2px solid #ff4444;
+  border-radius:10px; padding:14px 24px; color:#fff;
+  font-family:'Courier New',monospace; font-size:14px; font-weight:700;
+  text-align:center; pointer-events:none; z-index:100;
+  animation:flashIn 0.3s ease-out;
+}
+@keyframes flashIn { 0%{opacity:0;transform:translate(-50%,-50%) scale(0.8)} 100%{opacity:1;transform:translate(-50%,-50%) scale(1)} }
+
+/* ── Save/Load buttons ── */
+.save-row { display:flex; gap:5px; margin-top:6px; }
+.save-row button { flex:1; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.14);
+  border-radius:6px; color:#a0b8d0; font-size:10px; font-family:'Courier New',monospace;
+  padding:5px 3px; cursor:pointer; transition:background .15s; }
+.save-row button:hover { background:rgba(100,180,255,0.14); color:#fff; }
+
+/* ── Construction shimmer ── */
+@keyframes construct { 0%{opacity:0.4} 50%{opacity:1} 100%{opacity:0.4} }
+
+#legend {
+  position:absolute; bottom:12px; right:12px;
+  background:rgba(5,8,15,0.82); border:1px solid rgba(100,180,255,0.15);
+  border-radius:8px; padding:10px 14px;
+  font-size:11px; color:#6888aa; font-family:'Courier New',monospace; line-height:2;
+}
+.leg-dot { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:middle; }
+#legend .hint { font-size:10px; color:#445566; margin-top:4px; border-top:1px solid rgba(255,255,255,0.05); padding-top:6px; }
+
+/* ── World Map ── */
+#world-map-ui {
+  display:none; position:absolute; inset:0; z-index:200;
+  background:#0a0e1a; font-family:'Courier New',monospace;
+  flex-direction:column; align-items:center;
+  overflow-y:auto;
+}
+#world-map-ui.active { display:flex; flex-direction:column; }
+#world-header {
+  width:100%; padding:16px 24px;
+  background:rgba(5,8,20,0.98); border-bottom:1px solid rgba(100,180,255,0.15);
+  display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
+}
+#world-header h1 { color:#7eb8ff; font-size:18px; letter-spacing:3px; text-transform:uppercase; margin:0; }
+#world-header .sub { color:#445566; font-size:11px; margin-top:3px; }
+#world-header-right { text-align:right; }
+#world-header-right button {
+  background:rgba(100,180,255,0.1); border:1px solid rgba(100,180,255,0.3);
+  border-radius:6px; color:#7eb8ff; font-family:'Courier New',monospace;
+  font-size:12px; padding:7px 14px; cursor:pointer; transition:background .15s;
+}
+#world-header-right button:hover { background:rgba(100,180,255,0.22); }
+#world-grid-wrap { padding:28px; display:flex; flex-direction:column; align-items:center; gap:16px; }
+#world-grid { display:grid; grid-template-columns:repeat(10,58px); gap:5px; }
+.wt {
+  width:58px; height:58px; border-radius:7px; cursor:pointer;
+  border:2px solid rgba(255,255,255,0.07);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  font-size:9px; color:#445566; transition:all .15s; background:#111827;
+  user-select:none;
+}
+.wt:hover { border-color:rgba(100,180,255,0.55); color:#aad0ff; transform:scale(1.06); }
+.wt.owned  { background:#162a3a; border-color:#3a6a9a; color:#74c0fc; }
+.wt.mine   { background:#122a1a; border-color:#3a8a5a; color:#4ddb88; }
+.wt .wt-icon { font-size:22px; line-height:1; margin-bottom:3px; }
+.wt .wt-label { font-size:8px; text-align:center; line-height:1.3; padding:0 3px; }
+.wt .wt-thumb-label {
+  position:absolute; bottom:0; left:0; right:0;
+  background:rgba(0,0,0,0.5); color:#4ddb88;
+  font-size:8px; text-align:center; padding:2px;
+  border-radius:0 0 5px 5px;
+}
+#world-legend { display:flex; gap:18px; font-size:11px; color:#445566; }
+#world-legend span { display:flex; align-items:center; gap:6px; }
+#world-legend i { display:inline-block; width:12px; height:12px; border-radius:3px; }
+/* ── Modal panels (budget + stats) ── */
+.modal-overlay {
+  display:none; position:absolute; inset:0; z-index:150;
+  background:rgba(0,0,0,0.72); align-items:center; justify-content:center;
+}
+.modal-overlay.active { display:flex; }
+.modal-box {
+  background:rgba(5,8,20,0.97); border:1px solid rgba(100,180,255,0.25);
+  border-radius:12px; padding:20px 24px; color:#c9d8f0; width:420px; max-height:80vh;
+  overflow-y:auto; font-family:'Courier New',monospace; position:relative;
+}
+.modal-box h2 { font-size:14px; color:#7eb8ff; letter-spacing:2px; text-transform:uppercase;
+  margin-bottom:14px; padding-bottom:8px; border-bottom:1px solid rgba(100,180,255,0.15); }
+.modal-close { position:absolute; top:14px; right:16px; background:none; border:none;
+  color:#556677; font-size:16px; cursor:pointer; font-family:'Courier New',monospace; }
+.modal-close:hover { color:#fff; }
+.budget-row { display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px; }
+.budget-row .bl { color:#6888aa; }
+.budget-row .bv { font-weight:600; }
+.budget-section { margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(100,180,255,0.08); }
+.budget-section h3 { font-size:10px; color:#445566; text-transform:uppercase; letter-spacing:1px; margin-bottom:7px; }
+.loan-btn { width:100%; margin-top:10px; background:rgba(255,200,50,0.1); border:1px solid rgba(255,200,50,0.3);
+  border-radius:6px; color:#ffd060; font-size:11px; font-family:'Courier New',monospace;
+  padding:7px; cursor:pointer; transition:background .15s; }
+.loan-btn:hover { background:rgba(255,200,50,0.22); }
+.loan-btn:disabled { opacity:.35; cursor:not-allowed; }
+#stats-canvas { width:100%; height:180px; background:rgba(0,0,0,0.3); border-radius:6px;
+  border:1px solid rgba(100,180,255,0.1); margin-bottom:10px; }
+.stats-legend { display:flex; gap:14px; font-size:10px; margin-bottom:10px; }
+.stats-legend span { display:flex; align-items:center; gap:5px; }
+.stats-legend i { display:inline-block; width:20px; height:2px; border-radius:1px; }
+/* Bus route */
+#btn-bus.active { background:rgba(255,180,0,0.2); border-color:#ffb300; color:#ffdd66; }
+.bus-route-item { display:flex; justify-content:space-between; align-items:center;
+  font-size:11px; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+.bus-route-item button { background:none; border:none; color:#ff6b6b; cursor:pointer; font-size:12px; }
+
+/* ── Web3 wallet ── */
+#wallet-bar { position:absolute; top:12px; right:148px; z-index:100;
+  background:rgba(5,8,20,0.88); border:1px solid rgba(100,180,255,0.2);
+  border-radius:8px; padding:6px 12px; font-family:'Courier New',monospace;
+  display:flex; align-items:center; gap:8px; font-size:11px; }
+#wallet-addr { color:#4ddb88; font-size:10px; }
+#wallet-btn  { background:rgba(80,140,255,0.15); border:1px solid #5a8fff;
+  border-radius:5px; color:#aad0ff; font-family:'Courier New',monospace;
+  font-size:11px; padding:4px 10px; cursor:pointer; }
+#wallet-btn:hover { background:rgba(80,140,255,0.3); }
+.wt-price { font-size:8px; color:#ffd060; }
+.wt-forsale { border-color:#ffd060 !important; }
+.wt-owned-me { border-color:#4ddb88 !important; }
+
+/* ── Login modal ── */
+#login-modal { position:fixed; inset:0; z-index:999; background:rgba(0,0,0,0.88);
+  display:flex; align-items:center; justify-content:center; }
+#login-box { background:rgba(5,8,20,0.97); border:1px solid rgba(100,180,255,0.25);
+  border-radius:12px; padding:32px 36px; width:320px; text-align:center;
+  font-family:'Courier New',monospace; }
+#login-box h1 { color:#7eb8ff; font-size:20px; letter-spacing:3px; margin-bottom:6px; }
+#login-box p  { color:#445566; font-size:11px; margin-bottom:20px; }
+#login-box input { width:100%; background:rgba(255,255,255,0.07);
+  border:1px solid rgba(100,180,255,0.3); border-radius:6px; color:#c9d8f0;
+  font-family:'Courier New',monospace; font-size:14px; padding:10px 12px;
+  margin-bottom:14px; outline:none; }
+#login-box input:focus { border-color:#7eb8ff; }
+#login-box button { width:100%; background:rgba(80,140,255,0.2);
+  border:1px solid #5a8fff; border-radius:6px; color:#aad0ff;
+  font-family:'Courier New',monospace; font-size:13px; padding:10px;
+  cursor:pointer; transition:background .15s; }
+#login-box button:hover { background:rgba(80,140,255,0.35); }
+
+/* ── World map sidebar (chat + leaderboard) ── */
+#world-sidebar { display:flex; flex-direction:column; gap:16px;
+  width:280px; flex-shrink:0; padding:24px 0 24px 0; }
+#world-content { display:flex; gap:0; width:100%; max-width:1100px; }
+#world-grid-wrap { flex:1; }
+.sidebar-box { background:rgba(5,8,20,0.6); border:1px solid rgba(100,180,255,0.12);
+  border-radius:8px; padding:12px; font-family:'Courier New',monospace; }
+.sidebar-box h3 { color:#7eb8ff; font-size:11px; letter-spacing:2px;
+  text-transform:uppercase; margin-bottom:10px; }
+
+/* Leaderboard */
+#leaderboard-list { font-size:11px; }
+.lb-row { display:flex; align-items:center; gap:8px; padding:4px 0;
+  border-bottom:1px solid rgba(255,255,255,0.04); }
+.lb-rank { color:#445566; width:18px; font-size:10px; }
+.lb-name { flex:1; font-weight:600; }
+.lb-stat { color:#6888aa; font-size:10px; }
+
+/* Chat */
+#chat-messages { height:160px; overflow-y:auto; margin-bottom:8px;
+  font-size:10px; line-height:1.6; color:#7a9bbf; }
+#chat-messages::-webkit-scrollbar { width:3px; }
+#chat-messages::-webkit-scrollbar-thumb { background:#334; }
+.chat-msg .chat-name { font-weight:700; }
+.chat-system { color:#556677; font-style:italic; }
+#chat-input-row { display:flex; gap:5px; }
+#chat-input { flex:1; background:rgba(255,255,255,0.06); border:1px solid rgba(100,180,255,0.2);
+  border-radius:5px; color:#c9d8f0; font-family:'Courier New',monospace;
+  font-size:11px; padding:5px 8px; outline:none; }
+#chat-input:focus { border-color:#5a8fff; }
+#chat-send { background:rgba(80,140,255,0.15); border:1px solid #5a8fff;
+  border-radius:5px; color:#7eb8ff; font-size:11px; padding:5px 10px; cursor:pointer; }
+#chat-send:hover { background:rgba(80,140,255,0.3); }
+
+/* Raid button on world map tiles */
+.wt-raid { position:absolute; top:3px; right:3px; background:rgba(200,30,30,0.8);
+  border:none; border-radius:4px; color:#fff; font-size:9px; padding:2px 4px;
+  cursor:pointer; display:none; }
+.wt:hover .wt-raid { display:block; }
+.wt-raid:hover { background:rgba(255,50,50,0.9); }
+</style>
+</head>
+<body>
+
+<!-- Ethers.js for Web3 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+
+<!-- Wallet bar -->
+<div id="wallet-bar">
+  <span id="wallet-addr">Not connected</span>
+  <button id="wallet-btn" onclick="connectWallet()">🦊 Connect Wallet</button>
+</div>
+<div id="login-modal">
+  <div id="login-box">
+    <h1>🏙️ PIXEL_POLIS</h1>
+    <p>Enter your mayor name to begin</p>
+    <input id="login-name" type="text" maxlength="20" placeholder="Your city name / mayor name..."
+      onkeydown="if(event.key==='Enter')submitLogin()">
+    <button onclick="submitLogin()">▶ Enter Pixel_Polis</button>
+  </div>
+</div>
+
+<!-- ═══ WORLD MAP UI ═══ -->
+<div id="world-map-ui">
+  <div id="world-header">
+    <div>
+      <h1>🌍 Pixel_Polis World</h1>
+      <div class="sub" id="world-sub">Click an empty tile to found your city &nbsp;|&nbsp; Click your city to enter it</div>
+    </div>
+    <div id="world-header-right">
+      <button onclick="exitWorldMap()">✖ Close Map</button>
+    </div>
+  </div>
+  <div id="world-content">
+    <div id="world-grid-wrap">
+      <div id="world-grid"><!-- tiles injected by JS --></div>
+      <div id="world-legend" style="padding:0 28px 16px;display:flex;gap:18px;font-size:11px;color:#445566">
+        <span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#111827;border:2px solid rgba(255,255,255,0.07)"></i> Empty</span>
+        <span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#162a3a;border:2px solid #3a6a9a"></i> Owned by others</span>
+        <span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#122a1a;border:2px solid #3a8a5a"></i> Your city</span>
+      </div>
+    </div>
+    <div id="world-sidebar">
+      <!-- Leaderboard -->
+      <div class="sidebar-box">
+        <h3>🏆 Leaderboard</h3>
+        <div id="leaderboard-list"><div style="color:#445566;font-size:11px">No players yet</div></div>
+      </div>
+      <!-- World Chat -->
+      <div class="sidebar-box">
+        <h3>💬 World Chat</h3>
+        <div id="chat-messages"></div>
+        <div id="chat-input-row">
+          <input id="chat-input" type="text" maxlength="80" placeholder="Say something..."
+            onkeydown="if(event.key==='Enter')sendChat()">
+          <button id="chat-send" onclick="sendChat()">→</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ BUDGET PANEL ═══ -->
+<div class="modal-overlay" id="budget-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeBudget()">✖</button>
+    <h2>🏦 City Budget</h2>
+    <div class="budget-section">
+      <h3>Income (per tick)</h3>
+      <div class="budget-row"><span class="bl">Residential tax</span><span class="bv green" id="b-res-inc">$0</span></div>
+      <div class="budget-row"><span class="bl">Tax multiplier</span><span class="bv" id="b-tax-mult">1.0×</span></div>
+    </div>
+    <div class="budget-section">
+      <h3>Expenses (per tick)</h3>
+      <div class="budget-row"><span class="bl">Road maintenance</span><span class="bv red" id="b-road-exp">$0</span></div>
+      <div class="budget-row"><span class="bl">Building upkeep</span><span class="bv red" id="b-bld-exp">$0</span></div>
+      <div class="budget-row"><span class="bl">Loan repayment</span><span class="bv red" id="b-loan-rep">$0</span></div>
+    </div>
+    <div class="budget-section">
+      <h3>Balance</h3>
+      <div class="budget-row"><span class="bl">Net per tick</span><span class="bv" id="b-net">$0</span></div>
+      <div class="budget-row"><span class="bl">Current debt</span><span class="bv red" id="b-debt">$0</span></div>
+      <div class="budget-row"><span class="bl">Loans outstanding</span><span class="bv yellow" id="b-loans">0</span></div>
+    </div>
+    <button class="loan-btn" id="loan-btn" onclick="takeLoan()">💰 Take Loan ($500 at 10% interest, $10/tick repayment)</button>
+    <div style="font-size:10px;color:#445566;margin-top:8px">Max 3 loans at once. Debt &gt; $1000 triggers budget crisis.</div>
+  </div>
+</div>
+
+<!-- ═══ STATS PANEL ═══ -->
+<div class="modal-overlay" id="stats-modal">
+  <div class="modal-box" style="width:480px">
+    <button class="modal-close" onclick="closeStats()">✖</button>
+    <h2>📊 City Statistics</h2>
+    <canvas id="stats-canvas" width="432" height="180"></canvas>
+    <div class="stats-legend">
+      <span><i style="background:#4ddb88"></i>Population</span>
+      <span><i style="background:#74c0fc"></i>Income/tick</span>
+      <span><i style="background:#ffd060"></i>Happiness</span>
+    </div>
+    <div id="stats-summary" style="font-size:11px;color:#6888aa;line-height:1.8"></div>
+  </div>
+</div>
+
+<!-- ═══ BUS ROUTES PANEL ═══ -->
+<div class="modal-overlay" id="bus-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeBusPanel()">✖</button>
+    <h2>🚌 Bus Routes</h2>
+    <div style="font-size:11px;color:#6888aa;margin-bottom:10px">
+      Select Bus mode then click two road tiles to create a route.<br>
+      Citizens near stops travel farther. Each route +5 happiness.
+    </div>
+    <div id="bus-routes-list" style="margin-bottom:10px;min-height:30px"></div>
+    <div style="font-size:11px;color:#445566">Active routes: <span id="bus-count">0</span> / 5 max</div>
+  </div>
+</div>
+
+<!-- Day/Night time bar -->
+<div id="time-bar">
+  <div id="time-label">☀️ Day</div>
+  <div id="time-track"><div id="time-fill" style="width:50%;background:#ffd060"></div></div>
+</div>
+
+<!-- Disaster banner -->
+<div id="disaster-banner">⚠️ DISASTER!</div>
+
+<!-- Visiting banner -->
+<div id="visit-banner" style="display:none;position:absolute;bottom:0;left:0;right:0;
+  background:rgba(30,60,120,0.92);border-top:2px solid #4466ff;
+  padding:10px 20px;z-index:50;align-items:center;justify-content:space-between;
+  font-family:'Courier New',monospace;">
+  <span id="visit-banner-name" style="color:#74c0fc;font-size:12px;font-weight:700"></span>
+  <div style="display:flex;gap:10px">
+    <button onclick="openWorldMap()" style="background:rgba(100,180,255,0.15);border:1px solid #4466ff;
+      border-radius:6px;color:#74c0fc;font-family:'Courier New',monospace;font-size:11px;
+      padding:6px 14px;cursor:pointer">🗺️ World Map</button>
+    <button onclick="returnHome()" style="background:rgba(60,200,100,0.15);border:1px solid #3a8a5a;
+      border-radius:6px;color:#4ddb88;font-family:'Courier New',monospace;font-size:11px;
+      padding:6px 14px;cursor:pointer">🏠 Return Home</button>
+  </div>
+</div>
+
+<div id="hud">
+  <div class="city-name" id="city-name-display" title="Click to rename" onclick="startRenameCity()" style="cursor:pointer">&#9632; Pixel_Polis</div>
+  <input id="city-name-input" style="display:none;width:100%;background:rgba(255,255,255,0.07);border:1px solid #5a8fff;border-radius:5px;color:#aad0ff;font-family:'Courier New',monospace;font-size:13px;padding:4px 7px;margin-bottom:8px" placeholder="City name..." onblur="finishRenameCity()" onkeydown="if(event.key==='Enter')finishRenameCity()">
+  <div id="net-badge" style="font-size:10px;color:#888;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid rgba(100,180,255,0.1);border-radius:0;letter-spacing:0">○ Offline (single-player)</div>
+  <div id="player-roster" style="font-size:10px;min-height:14px;margin-bottom:4px;line-height:1.6"></div>
+
+  <div class="stat-row"><span class="lbl">Budget</span><span class="val yellow" id="money">$200</span></div>
+  <div class="stat-row"><span class="lbl">Income/tick</span><span class="val green" id="income-rate">$0</span></div>
+  <div class="stat-row"><span class="lbl">Population</span><span class="val" id="population">0</span></div>
+  <div class="stat-row"><span class="lbl">Citizens</span><span class="val" id="citizen-count">0</span></div>
+  <div class="stat-row"><span class="lbl">Citizen spending</span><span class="val cyan" id="citizen-earnings">$0</span></div>
+
+  <div class="divider"></div>
+
+  <!-- TAX RATE -->
+  <div class="demand-label">&#128181; Tax Rate</div>
+  <div class="demand-row" style="align-items:center;gap:6px">
+    <span class="dk" style="width:auto">R</span>
+    <input type="range" id="tax-res" min="0" max="30" value="10" style="flex:1;height:5px;cursor:pointer" oninput="updateTaxDisplay()">
+    <span class="dv" id="tax-res-val" style="width:28px">10%</span>
+  </div>
+  <div class="demand-row" style="align-items:center;gap:6px">
+    <span class="dk" style="width:auto">C</span>
+    <input type="range" id="tax-com" min="0" max="30" value="10" style="flex:1;height:5px;cursor:pointer" oninput="updateTaxDisplay()">
+    <span class="dv" id="tax-com-val" style="width:28px">10%</span>
+  </div>
+  <div class="demand-row" style="align-items:center;gap:6px">
+    <span class="dk" style="width:auto">I</span>
+    <input type="range" id="tax-ind" min="0" max="30" value="10" style="flex:1;height:5px;cursor:pointer" oninput="updateTaxDisplay()">
+    <span class="dv" id="tax-ind-val" style="width:28px">10%</span>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- HAPPINESS -->
+  <div class="demand-label">&#128578; Happiness</div>
+  <div class="demand-row">
+    <span class="dk" style="width:auto;margin-right:4px"><span id="happiness-val" style="font-weight:600">60</span></span>
+    <div class="demand-bar-bg"><div class="demand-bar-fill" id="happiness-bar" style="width:60%;background:#4ddb88"></div></div>
+    <span class="dv">/100</span>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- POWER -->
+  <div class="demand-label">&#9889; Power</div>
+  <div class="power-row">
+    <span><span class="power-dot" id="power-dot" style="background:#4ddb88"></span><span id="power-label">0 / 0 used</span></span>
+    <span class="val cyan" id="power-pct">OK</span>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- DEMAND BARS -->
+  <div class="demand-label">Demand</div>
+  <div class="demand-row">
+    <span class="dk">R</span>
+    <div class="demand-bar-bg"><div class="demand-bar-fill" id="bar-res" style="width:50%;background:#5090d0"></div></div>
+    <span class="dv" id="dv-res">50</span>
+  </div>
+  <div class="demand-row">
+    <span class="dk">C</span>
+    <div class="demand-bar-bg"><div class="demand-bar-fill" id="bar-com" style="width:50%;background:#eeaa33"></div></div>
+    <span class="dv" id="dv-com">50</span>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="mode-label">Build mode</div>
+  <div class="btn-grid">
+    <button id="btn-road"     onclick="setMode('road')"    class="active">&#9644; Road ($1)</button>
+    <button id="btn-res"      onclick="setMode('res')"     >&#127968; Res ($5)</button>
+    <button id="btn-com"      onclick="setMode('com')"     >&#127970; Com ($8)</button>
+    <button id="btn-ind"      onclick="setMode('ind')"     >&#9881; Ind ($10)</button>
+    <button id="btn-power"    onclick="setMode('power')"   >&#9889; Power ($15)</button>
+    <button id="btn-park"     onclick="setMode('park')"    >&#127795; Park ($6)</button>
+    <button id="btn-school"   onclick="setMode('school')"  >&#127979; School ($12)</button>
+    <button id="btn-hospital" onclick="setMode('hospital')">&#127973; Hospital ($18)</button>
+    <button id="btn-firestation" onclick="setMode('firestation')" style="background:rgba(200,30,30,0.1);border-color:rgba(200,30,30,0.3);color:#ff8888">&#128658; Fire Stn ($20)</button>
+    <button id="btn-bridge"   onclick="setMode('bridge')"  >&#9135; Bridge ($5)</button>
+    <button id="btn-view"     onclick="setMode('view')"    >&#128065; View</button>
+    <button id="btn-bus"      onclick="setMode('bus')"     >&#128652; Bus Route</button>
+    <button id="btn-demolish" onclick="setMode('demolish')" style="grid-column:span 2">&#128465; Demolish</button>
+  </div>
+
+  <div class="divider"></div>
+  <div id="info-panel">Click a tile to inspect</div>
+  <button id="upgrade-btn" onclick="upgradeSelected()">&#8679; Upgrade</button>
+
+  <div class="save-row">
+    <button onclick="saveCity()">&#128190; Save</button>
+    <button onclick="loadCity()">&#128194; Load</button>
+  </div>
+  <div class="save-row" style="margin-top:4px">
+    <button onclick="openBudget()" style="background:rgba(255,200,50,0.08);border-color:rgba(255,200,50,0.25);color:#ffd060">&#127970; Budget</button>
+    <button onclick="openStats()"  style="background:rgba(100,220,180,0.08);border-color:rgba(100,220,180,0.25);color:#4ddb88">&#128202; Stats</button>
+  </div>
+  <div class="save-row" style="margin-top:4px">
+    <button onclick="openBusPanel()" style="background:rgba(255,180,0,0.08);border-color:rgba(255,180,0,0.25);color:#ffb300">&#128652; Bus Routes</button>
+    <button onclick="openWorldMap()" style="background:rgba(100,180,255,0.08);border-color:rgba(100,180,255,0.25);color:#7eb8ff">&#127758; World Map</button>
+  </div>
+</div>
+
+<div id="legend">
+  <div><span class="leg-dot" style="background:#333355"></span>Road</div>
+  <div><span class="leg-dot" style="background:#3399ff"></span>Residential</div>
+  <div><span class="leg-dot" style="background:#ffaa00"></span>Commercial</div>
+  <div><span class="leg-dot" style="background:#884422"></span>Industrial</div>
+  <div><span class="leg-dot" style="background:#ffd700"></span>Power plant</div>
+  <div><span class="leg-dot" style="background:#33aa55"></span>Park (+happiness)</div>
+  <div><span class="leg-dot" style="background:#4488dd"></span>School (+growth)</div>
+  <div><span class="leg-dot" style="background:#eeeeff"></span>Hospital (+health)</div>
+  <div><span class="leg-dot" style="background:#ff6b6b"></span>Citizen</div>
+  <div><span class="leg-dot" style="background:#cc8844"></span>Delivery truck</div>
+  <div><span class="leg-dot" style="background:#4466ff"></span>Traffic car</div>
+  <div><span class="leg-dot" style="background:#998877"></span>Bridge (on river)</div>
+  <div><span class="leg-dot" style="background:#776655"></span>Mountain (blocked)</div>
+  <div><span class="leg-dot" style="background:#dd2222"></span>Fire Station (radius 4)</div>
+  <div class="hint">Drag: orbit &nbsp;|&nbsp; Scroll: zoom<br>🌉 Bridge over river tiles<br>⛰️ Mountains block building<br>🚒 Fire station reduces fire spread<br>🛣️ Road colour = traffic density<br>🌲 4 tree types spawn on empty tiles</div>
+  <div class="hint">Drag: orbit &nbsp;|&nbsp; Scroll: zoom<br>🌅 Day/night cycle active<br>🔥 Fires spread — act fast!<br>💾 Save/Load in HUD<br>🏫 Schools speed up res growth<br>🏥 Hospitals boost happiness<br>Land value gates upgrades (LV 30/60)</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════
+//  MULTIPLAYER NETWORK LAYER
+//  Falls back gracefully to single-player if no server.
+//  All outbound calls go through net.send().
+//  All inbound messages are dispatched in net.onMessage().
+// ═══════════════════════════════════════════════════════
+const net = (() => {
+  let ws = null;
+  let myId = null;
+  let myColor = '#7eb8ff';
+  let connected = false;
+
+  // Build the WS URL from the current page location so it works
+  // both locally (ws://localhost:3000) and on any host.
+  const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = location.protocol === 'file:'
+    ? null
+    : `${wsProto}//${location.host}`;
+
+  function updateNetBadge() {
+    const el = document.getElementById('net-badge');
+    if (!el) return;
+    el.textContent  = connected ? `● Connected  (You: Player ${myId})` : '○ Offline (single-player)';
+    el.style.color  = connected ? '#4ddb88' : '#888';
+    if (connected) el.style.borderColor = myColor;
+  }
+
+  function onMessage(raw) {
+    let msg;
+    try { msg = JSON.parse(raw); } catch { return; }
+
+    if (msg.type === 'welcome') {
+      myId = msg.playerId; myColor = msg.playerColor;
+      updateNetBadge();
+    }
+
+    if (msg.type === 'init') {
+      // Replay server world state through existing build functions.
+      // Sort by key so roads are placed before buildings that need them.
+      const entries = Object.values(msg.world)
+        .sort((a,b)=> (a.zone==='road'?0:1)-(b.zone==='road'?0:1));
+      for (const e of entries) {
+        _netApply(e.x, e.z, e.zone, e.level||1);
+      }
+      // Apply economy snapshot bundled with init
+      if (msg.econ) applyEconomySnapshot(msg.econ);
+      updateNetBadge();
+    }
+
+    if (msg.type === 'build')      { _netApply(msg.x, msg.z, msg.zone, 1); }
+    if (msg.type === 'demolish')   { _netDemolish(msg.x, msg.z); }
+    if (msg.type === 'upgrade')    { _netUpgrade(msg.x, msg.z, msg.newLevel||2); }
+    if (msg.type === 'players')    { updatePlayerRoster(msg.players); }
+    if (msg.type === 'economy')    { applyEconomySnapshot(msg); }
+    if (msg.type === 'leaderboard'){ renderLeaderboard(msg.scores); }
+    if (msg.type === 'chat')       { appendChatMsg(msg); }
+    if (msg.type === 'chatHistory'){ (msg.messages||[]).forEach(appendChatMsg); }
+    if (msg.type === 'raided')     { handleRaided(msg); }
+    if (msg.type === 'worldRegions'){
+      // Merge server regions into local world.regions
+      // Server regions are authoritative for owner/name/cityData.
+      // Local thumb stays (server strips it to save bandwidth).
+      for (const [k, r] of Object.entries(msg.regions||{})) {
+        const existing = world.regions[k];
+        world.regions[k] = {
+          owner:    r.owner,
+          name:     r.name,
+          cityData: r.cityData || existing?.cityData || {},
+          thumb:    existing?.thumb || null, // keep local thumb
+        };
+      }
+      // Remove regions that no longer exist server-side
+      for (const k of Object.keys(world.regions)) {
+        if (!(k in (msg.regions||{}))) delete world.regions[k];
+      }
+      saveWorldState(); // keep localStorage in sync
+      renderWorldGrid();
+    }
+  }
+
+  // Apply a remote build without deducting money or sending back to server
+  function _netApply(x, z, zone, targetLevel) {
+    if (!inBounds(x,z)) return;
+    if (tiles[x][z].type !== 'empty') return; // already placed
+    // Call the same functions the local player uses, bypassing cost check
+    if (zone==='road')  { tiles[x][z]={type:'road',level:0}; tileMeshes[x][z].material.color.setHex(TILE_COLORS.road); }
+    if (zone==='res')   { if (hasAdjacentRoad(x,z)) { tiles[x][z]={type:'res',level:1}; tileMeshes[x][z].material.color.setHex(TILE_COLORS.res); _resMesh(x,z,1); population+=POP_PER_LEVEL[0]; } }
+    if (zone==='com')   { tiles[x][z]={type:'com',level:1}; tileMeshes[x][z].material.color.setHex(TILE_COLORS.com); _comMesh(x,z,1); ensureComStore(x,z); }
+    if (zone==='ind')   { if (hasAdjacentRoad(x,z)) { tiles[x][z]={type:'ind',level:1}; tileMeshes[x][z].material.color.setHex(TILE_COLORS.ind); _indMesh(x,z,1); ensureIndStore(x,z); } }
+    if (zone==='power') { buildPower(x,z); } // buildPower handles its own tiles[] write
+    // Replay upgrades to reach target level
+    let cur=tiles[x][z].level||1;
+    while (cur<targetLevel && cur<3) { _netUpgrade(x,z,cur+1); cur++; }
+    updateUI();
+  }
+
+  function _netDemolish(x,z) {
+    if (!inBounds(x,z)) return;
+    demolish(x,z); updateUI();
+  }
+
+  function _netUpgrade(x,z,newLevel) {
+    if (!inBounds(x,z)) return;
+    const t=tiles[x][z];
+    if (!t||t.level>=newLevel||t.level>=3) return;
+    if (t.type==='res') { population-=POP_PER_LEVEL[t.level-1]; t.level=newLevel; population+=POP_PER_LEVEL[t.level-1]; _resMesh(x,z,t.level); }
+    else if (t.type==='com') { t.level=newLevel; _comMesh(x,z,t.level); }
+    else if (t.type==='ind') { t.level=newLevel; _indMesh(x,z,t.level); const ist=ensureIndStore(x,z); ist.capacity=IND_CAPACITY+(t.level-1)*30; }
+    updateUI();
+  }
+
+  function send(msg) {
+    if (ws && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify(msg));
+    // In offline mode, just do nothing — local functions already ran
+  }
+
+  // Attempt connection; silently degrade to single-player if refused
+  if (wsUrl) {
+    try {
+      ws = new WebSocket(wsUrl);
+      ws.onopen    = ()=>{ connected=true; updateNetBadge(); console.log('[net] connected');
+                           if (playerUsername) ws.send(JSON.stringify({type:'setName',name:playerUsername})); };
+      ws.onclose   = ()=>{ connected=false; updateNetBadge(); console.log('[net] disconnected'); };
+      ws.onerror   = ()=>{ connected=false; updateNetBadge(); };
+      ws.onmessage = e=>onMessage(e.data);
+    } catch(e) { console.warn('[net] WebSocket unavailable, running offline'); }
+  }
+
+  return { send, get connected(){ return connected; }, get myId(){ return myId; } };
+})();
+
+function updatePlayerRoster(players) {
+  const el=document.getElementById('player-roster');
+  if (!el) return;
+  const entries=Object.entries(players);
+  el.innerHTML = entries.map(([id,p])=>
+    `<span style="color:${p.color};margin-right:8px">● ${p.name}</span>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  SCENE
+// ═══════════════════════════════════════════════════════
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xa8d8f0);
+scene.fog = new THREE.Fog(0xa8d8f0, 35, 80);
+
+const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 200);
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+const sun = new THREE.DirectionalLight(0xfffbe8, 1.1);
+sun.position.set(15, 30, 15);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+scene.add(sun);
+
+// ═══════════════════════════════════════════════════════
+//  GRID
+// ═══════════════════════════════════════════════════════
+const SIZE = 20;
+const tiles        = Array.from({length:SIZE}, ()=>Array.from({length:SIZE}, ()=>({type:'empty',level:0})));
+const tileMeshes   = Array.from({length:SIZE}, ()=>Array(SIZE).fill(null));
+const buildingMeshes = {};   // "x_z" -> [Mesh,...]
+const powerOverlays  = {};   // "x_z" -> Mesh  (yellow glow plane)
+
+for (let x=0; x<SIZE; x++) {
+  for (let z=0; z<SIZE; z++) {
+    const m = new THREE.Mesh(
+      new THREE.BoxGeometry(0.98, 0.12, 0.98),
+      new THREE.MeshLambertMaterial({color: 0x5a9e58})
+    );
+    m.position.set(x, 0, z);
+    m.receiveShadow = true;
+    m.userData = {gx:x, gz:z};
+    scene.add(m);
+    tileMeshes[x][z] = m;
+  }
+}
+const gridHelper = new THREE.GridHelper(SIZE, SIZE, 0x000000, 0x000000);
+gridHelper.position.set(SIZE/2-0.5, 0.07, SIZE/2-0.5);
+gridHelper.material.opacity = 0.06;
+gridHelper.material.transparent = true;
+scene.add(gridHelper);
+
+// ═══════════════════════════════════════════════════════
+//  TREES  — 4 procedural variants on empty tiles
+// ═══════════════════════════════════════════════════════
+const treeMeshes = {}; // "x_z" -> THREE.Group
+
+function rngFromSeed(s) {
+  // Fast deterministic RNG — returns a function
+  let state = s;
+  return () => {
+    state = (state * 1664525 + 1013904223) & 0xffffffff;
+    return (state >>> 0) / 0xffffffff;
+  };
+}
+
+function makeTree(x, z, seed) {
+  const rng = rngFromSeed(seed);
+  const ox = (rng() - 0.5) * 0.5;
+  const oz = (rng() - 0.5) * 0.5;
+  const variant = Math.floor(rng() * 4); // 0=broadleaf 1=pine 2=palm 3=autumn
+  const group = new THREE.Group();
+  const trunkMat = new THREE.MeshLambertMaterial({color:0x5c3d1a});
+
+  if (variant === 0) {
+    // Round broadleaf
+    const h = 0.35 + rng() * 0.25;
+    const r = 0.22 + rng() * 0.12;
+    const col = [0x2d7a2d,0x3a8c3a,0x256325,0x4aa34a][Math.floor(rng()*4)];
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.06,h,5), trunkMat);
+    trunk.position.y = h/2+0.06;
+    const canopy = new THREE.Mesh(new THREE.SphereGeometry(r,6,5), new THREE.MeshLambertMaterial({color:col}));
+    canopy.position.y = h+r*0.65+0.06;
+    group.add(trunk); group.add(canopy);
+
+  } else if (variant === 1) {
+    // Tall pine / conifer
+    const h = 0.5 + rng() * 0.35;
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.05,h,5), trunkMat);
+    trunk.position.y = h/2+0.06;
+    // Stacked cones for layered look
+    const coneMat = new THREE.MeshLambertMaterial({color:0x1a5c1a});
+    const layers = 3;
+    for (let i=0;i<layers;i++) {
+      const cr = (0.18-i*0.04)+rng()*0.05;
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(cr,0.22,7), coneMat);
+      cone.position.y = h*0.4 + i*0.18 + 0.06;
+      group.add(cone);
+    }
+    group.add(trunk);
+
+  } else if (variant === 2) {
+    // Palm tree
+    const h = 0.5 + rng() * 0.3;
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.05,h,6), new THREE.MeshLambertMaterial({color:0x8b6914}));
+    trunk.position.y = h/2+0.06;
+    // Fronds as flat discs
+    const frondMat = new THREE.MeshLambertMaterial({color:0x33aa22});
+    for (let i=0;i<5;i++) {
+      const frond = new THREE.Mesh(new THREE.SphereGeometry(0.15,5,3), frondMat);
+      const angle = (i/5)*Math.PI*2;
+      frond.scale.set(1,0.3,1);
+      frond.position.set(Math.cos(angle)*0.18, h+0.05, Math.sin(angle)*0.18);
+      group.add(frond);
+    }
+    const top = new THREE.Mesh(new THREE.SphereGeometry(0.1,5,4), frondMat);
+    top.position.y = h+0.12;
+    group.add(trunk); group.add(top);
+
+  } else {
+    // Autumn / bare tree
+    const h = 0.3 + rng() * 0.2;
+    const col = [0xcc6622,0xdd8833,0xbb4411,0xeeaa22][Math.floor(rng()*4)];
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.06,h,5), trunkMat);
+    trunk.position.y = h/2+0.06;
+    // Small branch cluster
+    const leafMat = new THREE.MeshLambertMaterial({color:col});
+    for (let i=0;i<4;i++) {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.1+rng()*0.08,5,4), leafMat);
+      const angle = rng()*Math.PI*2;
+      b.position.set(Math.cos(angle)*0.15, h+rng()*0.15+0.06, Math.sin(angle)*0.15);
+      group.add(b);
+    }
+    group.add(trunk);
+  }
+
+  const elev = terrainHeight[x]?.[z] || 0;
+  group.position.set(x+ox, elev, z+oz);
+  return group;
+}
+
+function spawnTreeAt(x, z) {
+  const key = `${x}_${z}`;
+  if (treeMeshes[key]) return;
+  const seed = x * 31 + z * 97;
+  const group = makeTree(x, z, seed);
+  scene.add(group);
+  treeMeshes[key] = group;
+}
+
+function removeTreeAt(x, z) {
+  const key = `${x}_${z}`;
+  if (treeMeshes[key]) { scene.remove(treeMeshes[key]); delete treeMeshes[key]; }
+}
+
+function spawnAllTrees() {
+  for (let x=0; x<SIZE; x++) for (let z=0; z<SIZE; z++) {
+    if (tiles[x][z].type === 'empty' && !riverTiles.has(`${x}_${z}`) && !mountainTiles.has(`${x}_${z}`)) {
+      spawnTreeAt(x, z);
+    }
+  }
+}
+
+function clearAllTrees() {
+  for (const k in treeMeshes) { scene.remove(treeMeshes[k]); delete treeMeshes[k]; }
+}
+
+// ═══════════════════════════════════════════════════════
+//  TERRAIN — height map with hills and mountains
+// ═══════════════════════════════════════════════════════
+const terrainHeight = Array.from({length:SIZE}, ()=>Array(SIZE).fill(0));
+const mountainTiles = new Set(); // "x_z" — blocked tiles
+const mountainMeshes = {};       // "x_z" -> Group
+
+function generateTerrain(seed) {
+  const rng = rngFromSeed(seed + 9999);
+  // Clear
+  mountainTiles.clear();
+  for (const k in mountainMeshes) { scene.remove(mountainMeshes[k]); delete mountainMeshes[k]; }
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) terrainHeight[x][z]=0;
+
+  // Place 2-4 mountain clusters
+  const numClusters = 2 + Math.floor(rng()*3);
+  for (let c=0;c<numClusters;c++) {
+    const cx = 2 + Math.floor(rng()*(SIZE-4));
+    const cz = 2 + Math.floor(rng()*(SIZE-4));
+    const radius = 2 + Math.floor(rng()*3);
+    for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+      const dist = Math.sqrt((x-cx)**2+(z-cz)**2);
+      if (dist < radius) {
+        const h = Math.max(terrainHeight[x][z], (1-dist/radius)*0.8);
+        terrainHeight[x][z] = h;
+      }
+    }
+  }
+
+  // Apply heights to tile meshes and mark mountains
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    const h = terrainHeight[x][z];
+    const key = `${x}_${z}`;
+    tileMeshes[x][z].position.y = h*0.5; // raise the ground tile
+
+    if (h > 0.55) {
+      mountainTiles.add(key);
+      tileMeshes[x][z].material.color.setHex(0x887766);
+      _buildMountainMesh(x, z, h);
+    } else if (h > 0.25) {
+      if (tiles[x][z].type==='empty') tileMeshes[x][z].material.color.setHex(0x7a9966);
+    } else {
+      if (tiles[x][z].type==='empty') tileMeshes[x][z].material.color.setHex(TILE_COLORS.empty);
+    }
+  }
+}
+
+function _buildMountainMesh(x, z, h) {
+  const key = `${x}_${z}`;
+  if (mountainMeshes[key]) { scene.remove(mountainMeshes[key]); delete mountainMeshes[key]; }
+  const group = new THREE.Group();
+  const peakH = 0.5 + h*0.8;
+  // Rocky base
+  const base = new THREE.Mesh(
+    new THREE.ConeGeometry(0.55, peakH, 6),
+    new THREE.MeshLambertMaterial({color:0x776655})
+  );
+  base.position.y = terrainHeight[x][z]*0.5 + peakH/2 + 0.06;
+  // Snow cap
+  const snow = new THREE.Mesh(
+    new THREE.ConeGeometry(0.2, 0.18, 6),
+    new THREE.MeshLambertMaterial({color:0xeeeeff})
+  );
+  snow.position.y = terrainHeight[x][z]*0.5 + peakH + 0.06;
+  group.add(base); group.add(snow);
+  group.position.set(x, 0, z);
+  scene.add(group);
+  mountainMeshes[key] = group;
+}
+
+function clearTerrain() {
+  for (const k in mountainMeshes) { scene.remove(mountainMeshes[k]); delete mountainMeshes[k]; }
+  mountainTiles.clear();
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    terrainHeight[x][z]=0;
+    tileMeshes[x][z].position.y=0;
+    tileMeshes[x][z].material.color.setHex(TILE_COLORS.empty);
+  }
+}
+
+function isMountainTile(x,z) { return mountainTiles.has(`${x}_${z}`); }
+
+// ═══════════════════════════════════════════════════════
+//  BRIDGE — road over river tiles
+// ═══════════════════════════════════════════════════════
+const bridgeMeshes = {}; // "x_z" -> Group
+
+function buildBridge(x, z) {
+  if (!isRiverTile(x,z)) { showToast('Bridge only on river!',x,z,'#4488ff'); return false; }
+  if (tiles[x][z].type === 'bridge') return false;
+
+  tiles[x][z] = {type:'bridge', level:0};
+  // Detect orientation: check which axis has road/bridge neighbours
+  // If roads are on +X/-X side → bridge runs along X (railings on Z sides)
+  // If roads are on +Z/-Z side → bridge runs along Z (railings on X sides)
+  const hasRoadX = (inBounds(x+1,z)&&(tiles[x+1][z].type==='road'||tiles[x+1][z].type==='bridge')) ||
+                   (inBounds(x-1,z)&&(tiles[x-1][z].type==='road'||tiles[x-1][z].type==='bridge'));
+  // Axis: if connected along X, railings face Z. Otherwise railings face X.
+  const alongX = hasRoadX;
+
+  const group = new THREE.Group();
+  const stoneMat  = new THREE.MeshLambertMaterial({color:0xbbaa88}); // warm sandstone
+  const darkMat   = new THREE.MeshLambertMaterial({color:0x887766}); // darker stone
+  const railMat   = new THREE.MeshLambertMaterial({color:0x998855}); // rail colour
+  const roadMat   = new THREE.MeshLambertMaterial({color:0x555566}); // road surface on deck
+
+  // ── Deck (road surface) ──
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(0.88, 0.07, 0.88), roadMat);
+  deck.position.y = 0.22;
+  deck.castShadow = true;
+  group.add(deck);
+
+  // ── Two arch supports (stone arches on each side) ──
+  // Arch = thick base block + thin curved top (simulated with a half-cylinder-ish box)
+  const archW = alongX ? 0.12 : 0.88; // along bridge = thin, perpendicular = full width
+  const archD = alongX ? 0.88 : 0.12;
+  for (const side of [-1, 1]) {
+    // Base pillar
+    const pillar = new THREE.Mesh(
+      new THREE.BoxGeometry(archW, 0.30, archD),
+      stoneMat
+    );
+    pillar.position.set(
+      alongX ? 0 : side * 0.40,
+      0.09,
+      alongX ? side * 0.40 : 0
+    );
+    // Arch crown (rounded top illusion using a squashed cylinder)
+    const crown = new THREE.Mesh(
+      new THREE.CylinderGeometry(
+        alongX ? 0.44 : 0.06,
+        alongX ? 0.44 : 0.06,
+        alongX ? 0.12 : 0.88, 8
+      ),
+      darkMat
+    );
+    crown.rotation.z = alongX ? Math.PI/2 : 0;
+    crown.position.set(
+      alongX ? 0 : side * 0.40,
+      0.18,
+      alongX ? side * 0.40 : 0
+    );
+    group.add(pillar);
+    group.add(crown);
+  }
+
+  // ── Railing posts (4 per side) ──
+  const postGeo = new THREE.BoxGeometry(0.04, 0.18, 0.04);
+  const postPositions = [-0.32, -0.10, 0.10, 0.32]; // along the bridge axis
+  for (const side of [-1, 1]) {
+    for (const pos of postPositions) {
+      const post = new THREE.Mesh(postGeo, railMat);
+      post.position.set(
+        alongX ? pos      : side * 0.43,
+        0.31,
+        alongX ? side * 0.43 : pos
+      );
+      group.add(post);
+    }
+    // Top rail bar
+    const barGeo = new THREE.BoxGeometry(
+      alongX ? 0.88 : 0.04,
+      0.04,
+      alongX ? 0.04 : 0.88
+    );
+    const bar = new THREE.Mesh(barGeo, railMat);
+    bar.position.set(
+      alongX ? 0 : side * 0.43,
+      0.40,
+      alongX ? side * 0.43 : 0
+    );
+    group.add(bar);
+  }
+
+  group.position.set(x, 0, z);
+  scene.add(group);
+  const key = `${x}_${z}`;
+  bridgeMeshes[key] = group;
+  buildingMeshes[key] = [group];
+  money -= BUILD_COST.bridge;
+  net.send({type:'build',x,z,zone:'bridge'});
+  // Remove sidewalk strips on adjacent roads that face the bridge
+  neighbours(x,z).forEach(nb=>refreshSidewalk(nb.x,nb.z));
+  return true;
+}
+
+function isBridgeTile(x,z) { return tiles[x][z]?.type === 'bridge'; }
+
+// ═══════════════════════════════════════════════════════
+//  RIVER  — animated water winding across the grid
+// ═══════════════════════════════════════════════════════
+const riverTiles = new Set(); // "x_z" keys of water tiles
+const riverMeshes = {};       // "x_z" -> Mesh
+
+function generateRiver() {
+  // Simple winding river: start on left edge, walk right with random vertical drift
+  riverTiles.clear();
+  let z = 8 + Math.floor(Math.random() * 4); // start near middle
+  for (let x = 0; x < SIZE; x++) {
+    riverTiles.add(`${x}_${z}`);
+    // Widen river slightly
+    if (z > 0)      riverTiles.add(`${x}_${z-1}`);
+    if (z < SIZE-1) riverTiles.add(`${x}_${z+1}`);
+    // Random drift
+    const drift = Math.random();
+    if (drift < 0.3 && z > 1)       z--;
+    else if (drift > 0.7 && z < SIZE-2) z++;
+  }
+}
+
+function buildRiverMeshes() {
+  // Remove old
+  for (const k in riverMeshes) { scene.remove(riverMeshes[k]); delete riverMeshes[k]; }
+  const geo = new THREE.BoxGeometry(0.98, 0.1, 0.98);
+  for (const key of riverTiles) {
+    const [x,z] = key.split('_').map(Number);
+    const mat = new THREE.MeshLambertMaterial({color:0x2255aa, transparent:true, opacity:0.82});
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, -0.02, z); // slightly below ground level
+    scene.add(m);
+    riverMeshes[key] = m;
+    // Colour the tile ground darker so river edge is visible (only if empty)
+    if (tiles[x][z].type==='empty') tileMeshes[x][z].material.color.setHex(0x1a3a6a);
+  }
+}
+
+function animateRiver() {
+  const t = Date.now() * 0.001;
+  const r = 0.13 + Math.sin(t * 0.7) * 0.04;
+  const g = 0.33 + Math.sin(t * 0.5) * 0.04;
+  const b = 0.70 + Math.sin(t * 0.9) * 0.08;
+  for (const m of Object.values(riverMeshes)) {
+    m.material.color.setRGB(r, g, b);
+    m.position.y = -0.02 + Math.sin(t * 1.2) * 0.006;
+  }
+}
+
+// Block building on river tiles
+function isRiverTile(x, z) { return riverTiles.has(`${x}_${z}`); }
+
+// ═══════════════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════════════
+const TILE_COLORS   = {road:0x333355, res:0x2266bb, com:0xcc8800, power:0x998800, ind:0x884422, empty:0x5a9e58, bridge:0x887766, mountain:0x776655};
+const BUILD_COST    = {road:1, res:5, com:8, power:15, ind:10, bridge:5};
+const UPGRADE_COSTS = [150, 400];
+const POP_PER_LEVEL = [4, 9, 16];
+const RES_COLORS    = [0x8ab4e8, 0x5090d0, 0x2255aa];
+const RES_HEIGHTS   = [1, 1.8, 2.8];
+const COM_COLORS    = [0xffcc66, 0xeeaa33, 0xdd8800];
+const COM_HEIGHTS   = [2, 3.2, 4.8];
+const POWER_RADIUS  = 5;    // tiles of coverage per plant
+const POWER_SUPPLY  = 20;   // power units per plant
+const DIRS          = [{dx:1,dz:0},{dx:-1,dz:0},{dx:0,dz:1},{dx:0,dz:-1}];
+
+// ── COM GOODS STORE ──────────────────────────────────────
+// comStore["x_z"] = { goods:0-100, revenue:0, regenTimer:0 }
+// Separate from tiles[] so it survives mesh rebuilds.
+const comStore = {};
+const GOODS_MAX      = 100;
+const GOODS_PER_SALE = 8;    // goods consumed per citizen visit
+const GOODS_REGEN    = 3;    // goods added per economy tick (powered) / 1 (unpowered)
+const SALE_PRICE     = 5;    // $ citizen pays per shop visit (deducted from wallet)
+const WORK_WAGE      = 8;    // $ citizen earns per work visit (paid from building money)
+const WORK_WALLET_THRESHOLD = 6; // citizen goes to work if wallet < this value
+const WORK_WAIT      = 120;  // frames citizen spends "working" at com building
+const BLDG_MONEY_REGEN = 4;  // $ building earns per economy tick (its float fund for wages)
+const BLDG_MONEY_MAX   = 200; // cap on building cash reserve
+
+function ensureComStore(x,z) {
+  const k=`${x}_${z}`;
+  if (!comStore[k]) comStore[k]={ goods:GOODS_MAX, revenue:0, regenTimer:0, buildingMoney:50 };
+  return comStore[k];
+}
+function getComStore(x,z) { return comStore[`${x}_${z}`]||null; }
+function deleteComStore(x,z) { delete comStore[`${x}_${z}`]; }
+
+// ── INDUSTRIAL ZONE STORE ─────────────────────────────────
+// indStore["x_z"] = { goods:0-capacity, capacity, productionTimer }
+// Ind tiles produce goods each tick; delivery trucks carry them to com.
+const indStore = {};
+const IND_CAPACITY     = 80;   // max goods per ind tile
+const IND_PROD_RATE    = 6;    // goods produced per economy tick (powered)
+const IND_PROD_UNPOW   = 1;    // goods produced unpowered
+const IND_DELIVER_AMT  = 20;   // goods per delivery truck trip
+const IND_COLORS       = [0xcc6600, 0xaa4400, 0x882200]; // orange-brown shades
+const IND_HEIGHTS      = [0.8, 1.4, 2.0];
+
+function ensureIndStore(x,z) {
+  const k=`${x}_${z}`;
+  if (!indStore[k]) indStore[k]={ goods:0, capacity:IND_CAPACITY };
+  return indStore[k];
+}
+function getIndStore(x,z) { return indStore[`${x}_${z}`]||null; }
+function deleteIndStore(x,z) { delete indStore[`${x}_${z}`]; }
+
+// ── HAPPINESS SYSTEM ──────────────────────────────────────
+// cityHappiness: 0-100. Affects spending power, res income, growth speed.
+let cityHappiness = 60;
+
+function recomputeHappiness() {
+  let score = 50; // baseline
+  let resCount=0, indAdjacentRes=0, poweredBldg=0, unpoweredBldg=0;
+  let totalGoods=0, maxGoods=0, walletSum=0;
+
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    const t=tiles[x][z];
+    if (t.type==='res') {
+      resCount++;
+      // Penalty: industrial noise pollution adjacent to res
+      const adjInd=neighbours(x,z).filter(nb=>tiles[nb.x][nb.z].type==='ind').length;
+      indAdjacentRes += adjInd;
+      if (hasPower(x,z)) poweredBldg++; else unpoweredBldg++;
+    }
+    if (t.type==='com') {
+      if (hasPower(x,z)) poweredBldg++; else unpoweredBldg++;
+      const st=getComStore(x,z);
+      if (st) { totalGoods+=st.goods; maxGoods+=GOODS_MAX; }
+    }
+  }
+
+  // +goods availability (shelves stocked = happy shoppers)
+  if (maxGoods>0) score += 20*(totalGoods/maxGoods);
+
+  // +employment: citizens with healthy wallets
+  if (citizens.length>0) {
+    const richCount=citizens.filter(c=>c.wallet>=WORK_WALLET_THRESHOLD).length;
+    score += 15*(richCount/citizens.length);
+  }
+
+  // -industrial pollution: ind adjacent to res
+  score -= Math.min(25, indAdjacentRes*3);
+
+  // -power outages
+  if (poweredBldg+unpoweredBldg>0) score -= 20*(unpoweredBldg/(poweredBldg+unpoweredBldg));
+
+  // Smooth toward target
+  cityHappiness = Math.max(0, Math.min(100,
+    cityHappiness*0.75 + score*0.25
+  ));
+
+  // Special buildings bonus (park, hospital)
+  cityHappiness = Math.min(100, cityHappiness + specialHappinessBonus()*0.1);
+
+  // Visual: tint fog/sky toward warmer (happy) or cooler (sad)
+  const h = cityHappiness/100;
+  scene.background.setRGB(0.56+h*0.12, 0.78+h*0.07, 0.86+h*0.04);
+  scene.fog.color.copy(scene.background);
+
+  updateHappinessHUD();
+}
+
+function updateHappinessHUD() {
+  const hEl=document.getElementById('happiness-val');
+  const hBar=document.getElementById('happiness-bar');
+  if (!hEl||!hBar) return;
+  const h=Math.round(cityHappiness);
+  const col=h>=70?'#4ddb88':h>=40?'#ffd060':'#ff6b6b';
+  hEl.textContent=h;
+  hEl.style.color=col;
+  hBar.style.width=h+'%';
+  hBar.style.background=col;
+}
+
+// Happiness multiplier applied to income, spending, growth (0.5 at 0 → 1.5 at 100)
+function happinessMult() { return 0.5 + cityHappiness/100; }
+
+let money=200, population=0, mode='road', selectedTileRef=null;
+let citizenEarningsTotal=0; // lifetime earnings brought home by citizens
+
+// ═══════════════════════════════════════════════════════
+//  LAND VALUE  (0-100 per tile, recomputed each economy tick)
+// ═══════════════════════════════════════════════════════
+// landValue[x][z] = score 0-100 used to gate upgrades and boost growth speed
+const landValue = Array.from({length:SIZE},()=>Array(SIZE).fill(0));
+// Thresholds: tile must meet these land values for manual upgrade
+const LV_UPGRADE_MIN = [0, 30, 60]; // [unused, lv1→2 needs 30, lv2→3 needs 60]
+
+function recomputeLandValues() {
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    let score=0;
+    const t=tiles[x][z];
+    // Power coverage is a big positive
+    if (hasPower(x,z)) score+=25;
+    // Score each neighbour
+    for (const nb of neighbours(x,z)) {
+      const nt=tiles[nb.x][nb.z];
+      if (nt.type==='road')  score+=20;
+      if (nt.type==='res' && hasPower(nb.x,nb.z))  score+=15;
+      if (nt.type==='com' && hasPower(nb.x,nb.z))  score+=10;
+      if (nt.type==='empty') score-=5;
+    }
+    // Being on a road network (not isolated) is worth something
+    if (t.type==='road') score+=5;
+    landValue[x][z] = Math.max(0, Math.min(100, score));
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  DEMAND  (0-100, drift each tick)
+// ═══════════════════════════════════════════════════════
+const demand = { res:50, com:50 };
+
+function tickDemand() {
+  // Count current zoning (snippet formula: demand = 100 - own*5 + other*3)
+  let resCount=0, comCount=0;
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    if (tiles[x][z].type==='res') resCount++;
+    if (tiles[x][z].type==='com') comCount++;
+  }
+  const rawRes = 100 - resCount*5 + comCount*3;
+  const rawCom = 100 - comCount*5 + resCount*3;
+  // Smooth toward target (80% old + 20% new) so bars glide rather than snap
+  demand.res = Math.max(0, Math.min(100, demand.res*0.8 + rawRes*0.2 + (Math.random()*4-2)));
+  demand.com = Math.max(0, Math.min(100, demand.com*0.8 + rawCom*0.2 + (Math.random()*4-2)));
+  updateDemandBars();
+  // Drive organic growth after demand is updated
+  tickBuildingGrowth();
+}
+
+function updateDemandBars() {
+  const rv = Math.round(demand.res), cv = Math.round(demand.com);
+  document.getElementById('bar-res').style.width = rv+'%';
+  document.getElementById('dv-res').textContent  = rv;
+  document.getElementById('bar-com').style.width = cv+'%';
+  document.getElementById('dv-com').textContent  = cv;
+}
+
+// ═══════════════════════════════════════════════════════
+//  POWER SYSTEM
+// ═══════════════════════════════════════════════════════
+// poweredTiles: Set of "x_z" strings that have power coverage
+const poweredTiles = new Set();
+// powerPlants: array of {x,z}
+const powerPlants  = [];
+
+function rebuildPowerMap() {
+  poweredTiles.clear();
+  for (const pp of powerPlants) {
+    for (let dx=-POWER_RADIUS; dx<=POWER_RADIUS; dx++) {
+      for (let dz=-POWER_RADIUS; dz<=POWER_RADIUS; dz++) {
+        if (Math.abs(dx)+Math.abs(dz) > POWER_RADIUS) continue; // diamond radius
+        const nx=pp.x+dx, nz=pp.z+dz;
+        if (inBounds(nx,nz)) poweredTiles.add(`${nx}_${nz}`);
+      }
+    }
+  }
+  refreshPowerOverlays();
+  updatePowerHUD();
+}
+
+function hasPower(x,z) { return poweredTiles.has(`${x}_${z}`); }
+
+// Yellow semi-transparent planes on powered tiles
+const overlayGeo = new THREE.PlaneGeometry(0.96, 0.96);
+const overlayMat = new THREE.MeshBasicMaterial({color:0xffdd00, transparent:true, opacity:0.08, depthWrite:false});
+
+function refreshPowerOverlays() {
+  // Remove all old overlays
+  Object.values(powerOverlays).forEach(m=>scene.remove(m));
+  for (const k in powerOverlays) delete powerOverlays[k];
+  // Add new
+  for (const key of poweredTiles) {
+    const [x,z] = key.split('_').map(Number);
+    const m = new THREE.Mesh(overlayGeo, overlayMat.clone());
+    m.rotation.x = -Math.PI/2;
+    m.position.set(x, 0.14, z);
+    scene.add(m);
+    powerOverlays[key] = m;
+  }
+}
+
+function updatePowerHUD() {
+  const plants = powerPlants.length;
+  const supply = plants * POWER_SUPPLY;
+  let used = 0;
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    const t=tiles[x][z];
+    if ((t.type==='res'||t.type==='com') && hasPower(x,z)) used += t.level;
+  }
+  const pct = supply>0 ? Math.round(used/supply*100) : 0;
+  const overloaded = used > supply;
+  document.getElementById('power-label').textContent = `${used} / ${supply} used`;
+  document.getElementById('power-pct').textContent   = overloaded ? 'OVERLOAD' : 'OK';
+  document.getElementById('power-pct').className     = 'val ' + (overloaded?'red':'cyan');
+  document.getElementById('power-dot').style.background = overloaded?'#ff6b6b':'#4ddb88';
+}
+
+// ═══════════════════════════════════════════════════════
+//  GRID UTILITIES
+// ═══════════════════════════════════════════════════════
+const tkey      = (x,z) => x*100+z;
+const inBounds  = (x,z) => x>=0 && x<SIZE && z>=0 && z<SIZE;
+
+function neighbours(x,z) {
+  const out=[];
+  for (const {dx,dz} of DIRS) { const nx=x+dx,nz=z+dz; if(inBounds(nx,nz)) out.push({x:nx,z:nz}); }
+  return out;
+}
+function hasAdjacentRoad(x,z) { return neighbours(x,z).some(p=>tiles[p.x][p.z].type==='road'||tiles[p.x][p.z].type==='bridge'); }
+function countAdjacentRes(x,z) { return neighbours(x,z).filter(p=>tiles[p.x][p.z].type==='res').length; }
+
+// ═══════════════════════════════════════════════════════
+//  A* PATHFINDING  (road tiles only)
+// ═══════════════════════════════════════════════════════
+function astar(sx, sz, gx, gz) {
+  if (sx===gx && sz===gz) return [{x:sx,z:sz}];
+  // Treat both road and bridge as walkable
+  const walkable = (x,z) => inBounds(x,z) && (tiles[x][z].type==='road' || tiles[x][z].type==='bridge');
+  if (!walkable(gx,gz)) return null;
+
+  const open=[], gScore=new Map(), cameFrom=new Map();
+  const startK=tkey(sx,sz), goalK=tkey(gx,gz);
+  gScore.set(startK, 0);
+  open.push({x:sx,z:sz,g:0,f:Math.abs(sx-gx)+Math.abs(sz-gz)});
+
+  let iters=0;
+  while (open.length && iters++<1500) {
+    let bi=0;
+    for (let i=1;i<open.length;i++) if (open[i].f<open[bi].f) bi=i;
+    const cur=open.splice(bi,1)[0];
+    const ck=tkey(cur.x,cur.z);
+    if (ck===goalK) {
+      const path=[];
+      let k=goalK;
+      while (k!==undefined) { path.unshift({x:Math.floor(k/100),z:k%100}); k=cameFrom.get(k); }
+      return path;
+    }
+    for (const nb of neighbours(cur.x,cur.z)) {
+      if (tiles[nb.x][nb.z].type!=='road' && tiles[nb.x][nb.z].type!=='bridge') continue;
+      const nk=tkey(nb.x,nb.z), ng=(gScore.get(ck)||0)+1;
+      if (ng<(gScore.get(nk)??Infinity)) {
+        gScore.set(nk,ng); cameFrom.set(nk,ck);
+        open.push({x:nb.x,z:nb.z,g:ng,f:ng+Math.abs(nb.x-gx)+Math.abs(nb.z-gz)});
+      }
+    }
+  }
+  return null;
+}
+
+function nearestRoad(sx,sz) {
+  const visited=new Set([tkey(sx,sz)]), queue=[{x:sx,z:sz}];
+  while (queue.length) {
+    const {x,z}=queue.shift();
+    if (tiles[x][z].type==='road'||tiles[x][z].type==='bridge') return {x,z};
+    for (const nb of neighbours(x,z)) { const k=tkey(nb.x,nb.z); if(!visited.has(k)){visited.add(k);queue.push(nb);} }
+  }
+  return null;
+}
+
+function randomComTile() {
+  const coms=[];
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) if (tiles[x][z].type==='com') coms.push({x,z});
+  return coms.length ? coms[Math.floor(Math.random()*coms.length)] : null;
+}
+function randomRoadTile() {
+  const roads=[];
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) if (tiles[x][z].type==='road') roads.push({x,z});
+  return roads.length ? roads[Math.floor(Math.random()*roads.length)] : null;
+}
+
+// ═══════════════════════════════════════════════════════
+//  BUILD / DEMOLISH
+// ═══════════════════════════════════════════════════════
+function clearBuilding(x,z) {
+  const k=`${x}_${z}`;
+  if (buildingMeshes[k]) { buildingMeshes[k].forEach(m=>scene.remove(m)); delete buildingMeshes[k]; }
+}
+
+const sidewalkMeshes = {}; // "x_z" -> [Mesh,...]
+const sidewalkMat = new THREE.MeshLambertMaterial({color:0x999988});
+
+function refreshSidewalk(x, z) {
+  // Remove existing strips for this tile
+  const key = `${x}_${z}`;
+  if (sidewalkMeshes[key]) {
+    sidewalkMeshes[key].forEach(m=>scene.remove(m));
+    delete sidewalkMeshes[key];
+  }
+  if (tiles[x][z].type !== 'road') return;
+
+  const strips = [];
+  // Check each of the 4 edges — only add a strip if that neighbour is NOT a road
+  const edges = [
+    { dx:0,  dz:1,  geo: new THREE.BoxGeometry(0.98,0.04,0.12), ox:0,     oz:0.44  }, // +Z
+    { dx:0,  dz:-1, geo: new THREE.BoxGeometry(0.98,0.04,0.12), ox:0,     oz:-0.44 }, // -Z
+    { dx:1,  dz:0,  geo: new THREE.BoxGeometry(0.12,0.04,0.98), ox:0.44,  oz:0     }, // +X
+    { dx:-1, dz:0,  geo: new THREE.BoxGeometry(0.12,0.04,0.98), ox:-0.44, oz:0     }, // -X
+  ];
+  for (const e of edges) {
+    const nx=x+e.dx, nz=z+e.dz;
+    const hasRoadNeighbour = inBounds(nx,nz) && (tiles[nx][nz].type==='road' || tiles[nx][nz].type==='bridge');
+    if (!hasRoadNeighbour) {
+      const m = new THREE.Mesh(e.geo, sidewalkMat);
+      m.position.set(x+e.ox, 0.08, z+e.oz);
+      m.receiveShadow = true;
+      scene.add(m);
+      strips.push(m);
+    }
+  }
+  if (strips.length) sidewalkMeshes[key] = strips;
+}
+
+function buildRoad(x,z) {
+  tiles[x][z]={type:'road',level:0};
+  tileMeshes[x][z].material.color.setHex(TILE_COLORS.road);
+  money -= BUILD_COST.road;
+  net.send({type:'build',x,z,zone:'road'});
+  removeTreeAt(x,z);
+  refreshSidewalk(x,z);
+  neighbours(x,z).forEach(nb=>refreshSidewalk(nb.x,nb.z));
+}
+
+function buildRes(x,z) {
+  if (!hasAdjacentRoad(x,z)) { showToast('Needs a road nearby!',x,z,'#ff8844'); return false; }
+  tiles[x][z]={type:'res',level:1};
+  tileMeshes[x][z].material.color.setHex(TILE_COLORS.res);
+  _resMesh(x,z,1);
+  population += POP_PER_LEVEL[0];
+  money -= BUILD_COST.res;
+  net.send({type:'build',x,z,zone:'res'});
+  removeTreeAt(x,z);
+  return true;
+}
+
+
+function _resMesh(x,z,lv) {
+  clearBuilding(x,z);
+  const h=RES_HEIGHTS[lv-1];
+  const powered = hasPower(x,z);
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.75,h,0.75),new THREE.MeshLambertMaterial({color:powered?RES_COLORS[lv-1]:0x556677}));
+  body.position.set(x,h/2+0.06,z); body.castShadow=true;
+  const roof=new THREE.Mesh(new THREE.ConeGeometry(0.55,0.5,4),new THREE.MeshLambertMaterial({color:powered?(lv===3?0x884422:0xcc4444):0x445566}));
+  roof.position.set(x,h+0.31,z); roof.rotation.y=Math.PI/4;
+  // Unpowered indicator: red warning sphere
+  if (!powered) {
+    const warn=new THREE.Mesh(new THREE.SphereGeometry(0.12,6,6),new THREE.MeshLambertMaterial({color:0xff3333}));
+    warn.position.set(x,h+0.85,z);
+    scene.add(warn);
+    buildingMeshes[`${x}_${z}`]=[body,roof,warn];
+  } else {
+    buildingMeshes[`${x}_${z}`]=[body,roof];
+  }
+  scene.add(body); scene.add(roof);
+  animateConstruct(buildingMeshes[`${x}_${z}`]);
+  addBuildingLight(x,z,0xffdd88);
+}
+
+function buildCom(x,z) {
+  tiles[x][z]={type:'com',level:1};
+  tileMeshes[x][z].material.color.setHex(TILE_COLORS.com);
+  _comMesh(x,z,1);
+  ensureComStore(x,z);
+  money -= BUILD_COST.com;
+  net.send({type:'build',x,z,zone:'com'});
+  removeTreeAt(x,z);
+  return true;
+}
+
+function _comMesh(x,z,lv) {
+  clearBuilding(x,z);
+  const h=COM_HEIGHTS[lv-1];
+  const powered=hasPower(x,z);
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.75,h,0.75),new THREE.MeshLambertMaterial({color:powered?COM_COLORS[lv-1]:0x665544}));
+  body.position.set(x,h/2+0.06,z); body.castShadow=true;
+  const top=new THREE.Mesh(new THREE.BoxGeometry(0.45,0.35,0.45),new THREE.MeshLambertMaterial({color:powered?0xfff0bb:0x554433}));
+  top.position.set(x,h+0.24,z);
+  scene.add(body); scene.add(top);
+  if (!powered) {
+    const warn=new THREE.Mesh(new THREE.SphereGeometry(0.12,6,6),new THREE.MeshLambertMaterial({color:0xff3333}));
+    warn.position.set(x,h+0.75,z); scene.add(warn);
+    buildingMeshes[`${x}_${z}`]=[body,top,warn];
+  } else {
+    buildingMeshes[`${x}_${z}`]=[body,top];
+  }
+  animateConstruct(buildingMeshes[`${x}_${z}`]);
+  addBuildingLight(x,z,0xffcc44);
+}
+
+function buildPower(x,z) {
+  tiles[x][z]={type:'power',level:0};
+  tileMeshes[x][z].material.color.setHex(TILE_COLORS.power);
+  // 3D power plant: blocky base + chimney
+  clearBuilding(x,z);
+  const base=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.7,0.8),new THREE.MeshLambertMaterial({color:0xaa9900}));
+  base.position.set(x,0.41,z); base.castShadow=true;
+  const chimney=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.14,0.9,8),new THREE.MeshLambertMaterial({color:0x777766}));
+  chimney.position.set(x,1.16,z);
+  // Glow top
+  const glow=new THREE.Mesh(new THREE.SphereGeometry(0.15,8,8),new THREE.MeshLambertMaterial({color:0xffee44,emissive:0xffaa00,emissiveIntensity:0.6}));
+  glow.position.set(x,1.65,z);
+  scene.add(base); scene.add(chimney); scene.add(glow);
+  buildingMeshes[`${x}_${z}`]=[base,chimney,glow];
+  powerPlants.push({x,z});
+  money -= BUILD_COST.power;
+  rebuildPowerMap();
+  refreshAllBuildings();
+  net.send({type:'build',x,z,zone:'power'});
+  removeTreeAt(x,z);
+}
+
+// Refresh all building meshes to reflect new power state
+function refreshAllBuildings() {
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    const t=tiles[x][z];
+    if (t.type==='res') _resMesh(x,z,t.level);
+    if (t.type==='com') _comMesh(x,z,t.level);
+    if (t.type==='ind') _indMesh(x,z,t.level);
+  }
+}
+
+// ── INDUSTRIAL ZONE BUILD ──
+function buildInd(x,z) {
+  if (!hasAdjacentRoad(x,z)) { showToast('Needs a road nearby!',x,z,'#ff8844'); return false; }
+  tiles[x][z]={type:'ind',level:1};
+  tileMeshes[x][z].material.color.setHex(TILE_COLORS.ind);
+  _indMesh(x,z,1);
+  ensureIndStore(x,z);
+  money -= BUILD_COST.ind;
+  net.send({type:'build',x,z,zone:'ind'});
+  removeTreeAt(x,z);
+  return true;
+}
+
+function _indMesh(x,z,lv) {
+  clearBuilding(x,z);
+  const h=IND_HEIGHTS[lv-1];
+  const powered=hasPower(x,z);
+  // Blocky factory body
+  const body=new THREE.Mesh(
+    new THREE.BoxGeometry(0.8,h,0.8),
+    new THREE.MeshLambertMaterial({color:powered?IND_COLORS[lv-1]:0x553322})
+  );
+  body.position.set(x,h/2+0.06,z); body.castShadow=true;
+  scene.add(body);
+  // Smokestacks (1 at lv1, 2 at lv2+)
+  const stackMat=new THREE.MeshLambertMaterial({color:powered?0x666655:0x443322});
+  const stacks=[];
+  const stackPositions=lv===1?[[0,0]]:[[0.18,0.18],[-0.18,-0.18]];
+  for (const [ox,oz] of stackPositions) {
+    const stack=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.1,0.5+lv*0.2,6),stackMat);
+    stack.position.set(x+ox,h+0.3+lv*0.1,z+oz);
+    scene.add(stack);
+    stacks.push(stack);
+  }
+  // Smoke puff sphere (visible when powered)
+  const puffMeshes=[];
+  if (powered) {
+    for (const [ox,oz] of stackPositions) {
+      const puff=new THREE.Mesh(
+        new THREE.SphereGeometry(0.12,5,5),
+        new THREE.MeshLambertMaterial({color:0x999988,transparent:true,opacity:0.55})
+      );
+      puff.position.set(x+ox,h+0.7+lv*0.15,z+oz);
+      scene.add(puff);
+      puffMeshes.push(puff);
+    }
+  }
+  buildingMeshes[`${x}_${z}`]=[body,...stacks,...puffMeshes];
+}
+
+function demolish(x,z) {
+  const t=tiles[x][z];
+  if (t.type==='empty') return;
+  if (t.type==='res') {
+    population -= POP_PER_LEVEL[(t.level||1)-1];
+    for (let i=citizens.length-1;i>=0;i--) {
+      if (citizens[i].homeX===x&&citizens[i].homeZ===z) { scene.remove(citizens[i].mesh); citizens.splice(i,1); }
+    }
+  }
+  if (t.type==='com') deleteComStore(x,z);
+  if (t.type==='ind') { deleteIndStore(x,z); removeDeliveriesFrom(x,z); }
+  if (t.type==='road') {
+    const sw=sidewalkMeshes[`${x}_${z}`];
+    if (sw) { sw.forEach(m=>scene.remove(m)); delete sidewalkMeshes[`${x}_${z}`]; }
+  }
+  if (t.type==='power') {
+    const idx=powerPlants.findIndex(p=>p.x===x&&p.z===z);
+    if (idx>=0) powerPlants.splice(idx,1);
+  }
+  clearBuilding(x,z);
+  tiles[x][z]={type:'empty',level:0};
+  tileMeshes[x][z].material.color.setHex(TILE_COLORS.empty);
+  if (t.type==='power') { rebuildPowerMap(); refreshAllBuildings(); }
+  if (t.type==='road') neighbours(x,z).forEach(nb=>refreshSidewalk(nb.x,nb.z));
+  // Restore tree on cleared tile (unless it's a river tile)
+  if (!isRiverTile(x,z)) spawnTreeAt(x,z);
+  net.send({type:'demolish',x,z});
+}
+
+function upgradeSelected() {
+  if (!selectedTileRef) return;
+  const {x,z}=selectedTileRef;
+  const t=tiles[x][z];
+  if (!t||t.level>=3) return;
+  const upgradeable = t.type==='res'||t.type==='com'||t.type==='ind';
+  if (!upgradeable) return;
+  if (!hasPower(x,z)) { showToast('No power! Build a plant nearby.',x,z,'#ffaa00'); return; }
+  // Land value gate (not applied to industrial)
+  if (t.type!=='ind') {
+    const lvMin=LV_UPGRADE_MIN[t.level];
+    const lv=Math.round(landValue[x][z]);
+    if (lv<lvMin) { showToast(`Land value too low! Need ${lvMin}, have ${lv}`,x,z,'#ff8844'); return; }
+  }
+  const cost=UPGRADE_COSTS[t.level-1];
+  if (money<cost) { showToast('Not enough funds!',x,z,'#ff6666'); return; }
+  money -= cost;
+  if (t.type==='res') { population-=POP_PER_LEVEL[t.level-1]; t.level++; population+=POP_PER_LEVEL[t.level-1]; _resMesh(x,z,t.level); }
+  else if (t.type==='com') { t.level++; _comMesh(x,z,t.level); }
+  else if (t.type==='ind') {
+    t.level++;
+    _indMesh(x,z,t.level);
+    // Expand ind capacity on upgrade
+    const ist=ensureIndStore(x,z);
+    ist.capacity=IND_CAPACITY+(t.level-1)*30;
+  }
+  net.send({type:'upgrade',x,z});
+  updateUI(); inspectTile(x,z);
+}
+
+// ═══════════════════════════════════════════════════════
+//  NEAREST COMMERCIAL  (BFS by Manhattan distance, road-accessible)
+// ═══════════════════════════════════════════════════════
+// Returns the com tile whose nearest road is reachable from pos, sorted by
+// road distance. Falls back to closest by air if none road-connected.
+function nearestComTile(ox,oz) {
+  let best=null, bestDist=Infinity;
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    if (tiles[x][z].type!=='com') continue;
+    const d = Math.abs(x-ox)+Math.abs(z-oz); // Manhattan air distance as proxy
+    if (d<bestDist) { bestDist=d; best={x,z}; }
+  }
+  return best; // null if no com tiles exist
+}
+
+// ═══════════════════════════════════════════════════════
+//  ORGANIC BUILDING GROWTH  (demand-driven, from snippet)
+// ═══════════════════════════════════════════════════════
+// Each building accumulates a growth timer. When it exceeds threshold it
+// auto-upgrades (if powered + adjacent road). Res grows faster with high
+// C-demand; Com grows faster with high R-demand — exactly as snippet intended.
+const GROWTH_THRESHOLD = 5;   // ticks needed to auto-upgrade
+const growthTimers = {};       // "x_z" -> float accumulator
+
+function tickBuildingGrowth() {
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    const t=tiles[x][z];
+    if (t.type!=='res'&&t.type!=='com'&&t.type!=='ind') continue;
+    if (t.level>=3) continue;
+    if (!hasAdjacentRoad(x,z)) continue;
+    if (!hasPower(x,z)) continue;
+
+    const k=`${x}_${z}`;
+    if (!growthTimers[k]) growthTimers[k]=0;
+
+    let speedBoost = 1;
+    if (t.type==='res') speedBoost += demand.com/50;
+    if (t.type==='com') speedBoost += demand.res/50;
+    if (t.type==='ind') speedBoost += (demand.res+demand.com)/100; // ind grows when both zones are in demand
+    speedBoost *= (0.5 + landValue[x][z]/100);
+    speedBoost *= happinessMult(); // happy city = faster growth
+    if (t.type==='res' && neighbours(x,z).some(nb=>tiles[nb.x][nb.z].type==='school')) speedBoost *= 1.5;
+
+    growthTimers[k] += speedBoost;
+
+    if (growthTimers[k] >= GROWTH_THRESHOLD) {
+      growthTimers[k] = 0;
+      const cost = Math.floor(UPGRADE_COSTS[t.level-1] / 2);
+      if (money < cost) continue;
+      money -= cost;
+      if (t.type==='res') { population-=POP_PER_LEVEL[t.level-1]; t.level++; population+=POP_PER_LEVEL[t.level-1]; _resMesh(x,z,t.level); }
+      else if (t.type==='com') { t.level++; _comMesh(x,z,t.level); }
+      else if (t.type==='ind') {
+        t.level++; _indMesh(x,z,t.level);
+        const ist=ensureIndStore(x,z);
+        ist.capacity=IND_CAPACITY+(t.level-1)*30;
+      }
+      showIncomeFloat(x,z,'↑ grew!');
+      updateUI();
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  DELIVERY TRUCKS  — ind → com goods transport via A*
+// ═══════════════════════════════════════════════════════
+// truck: { mesh, fromX,fromZ, destX,destZ, state, path, pathIdx, stepT, cargo }
+const trucks = [];
+const MAX_TRUCKS = 10;
+const truckGeo  = new THREE.BoxGeometry(0.3, 0.15, 0.5);
+const truckMat  = new THREE.MeshLambertMaterial({color:0xcc8844});
+
+function nearestComNeedingGoods(fx,fz) {
+  let best=null, bestDist=Infinity;
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    if (tiles[x][z].type!=='com') continue;
+    const st=getComStore(x,z);
+    if (!st||st.goods>=GOODS_MAX*0.9) continue; // only deliver if below 90%
+    const d=Math.abs(x-fx)+Math.abs(z-fz);
+    if (d<bestDist) { bestDist=d; best={x,z}; }
+  }
+  return best;
+}
+
+function spawnTruck(fx,fz) {
+  if (trucks.length>=MAX_TRUCKS) return;
+  const ist=getIndStore(fx,fz);
+  if (!ist||ist.goods<IND_DELIVER_AMT) return;
+  const dest=nearestComNeedingGoods(fx,fz);
+  if (!dest) return;
+  const path=buildCitizenPath(fx,fz,dest.x,dest.z); // reuse same A* helper
+  if (!path||path.length<2) return;
+
+  ist.goods -= IND_DELIVER_AMT; // load the truck
+
+  const mesh=new THREE.Mesh(truckGeo, truckMat.clone());
+  mesh.position.set(path[0].x,0.22,path[0].z);
+  mesh.castShadow=true;
+  scene.add(mesh);
+
+  trucks.push({
+    mesh, fromX:fx, fromZ:fz, destX:dest.x, destZ:dest.z,
+    path, pathIdx:0, stepT:0,
+    speed:0.025, cargo:IND_DELIVER_AMT,
+    returning:false
+  });
+}
+
+function removeDeliveriesFrom(fx,fz) {
+  for (let i=trucks.length-1;i>=0;i--) {
+    if (trucks[i].fromX===fx&&trucks[i].fromZ===fz) {
+      scene.remove(trucks[i].mesh);
+      trucks.splice(i,1);
+    }
+  }
+}
+
+function stepTrucks() {
+  for (let i=trucks.length-1;i>=0;i--) {
+    const tr=trucks[i];
+    const from=tr.path[tr.pathIdx];
+    const to  =tr.path[tr.pathIdx+1];
+
+    if (!from||!to) {
+      if (!tr.returning) {
+        // Arrived at com — deposit goods
+        const st=getComStore(tr.destX,tr.destZ);
+        if (st) {
+          st.goods=Math.min(GOODS_MAX, st.goods+tr.cargo);
+          showIncomeFloat(tr.destX, tr.destZ, tr.cargo+' goods');
+        }
+        // Head back to ind
+        const returnPath=buildCitizenPath(tr.destX,tr.destZ,tr.fromX,tr.fromZ);
+        if (returnPath&&returnPath.length>=2) {
+          tr.path=returnPath; tr.pathIdx=0; tr.stepT=0;
+          tr.returning=true; tr.cargo=0;
+          tr.mesh.material.color.setHex(0x886633); // slightly darker when empty
+        } else {
+          scene.remove(tr.mesh); trucks.splice(i,1);
+        }
+      } else {
+        // Arrived back at ind — despawn
+        scene.remove(tr.mesh); trucks.splice(i,1);
+      }
+      continue;
+    }
+
+    tr.stepT+=tr.speed;
+    if (tr.stepT>=1) {
+      tr.stepT=0; tr.pathIdx++;
+      tr.mesh.position.set(to.x,0.22,to.z);
+    } else {
+      tr.mesh.position.x=from.x+(to.x-from.x)*tr.stepT;
+      tr.mesh.position.z=from.z+(to.z-from.z)*tr.stepT;
+      const dx=to.x-from.x,dz=to.z-from.z;
+      if (dx||dz) tr.mesh.rotation.y=Math.atan2(dx,dz);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  AMBIENT TRAFFIC  — decorative cars that loop road tiles via A*
+//  Purely visual. Spawn when roads exist, despawn when demolished.
+// ═══════════════════════════════════════════════════════
+const MAX_CARS = 12;
+const CAR_COLORS = [0x4466ff, 0xff3333, 0xffcc00, 0xdddddd, 0x44cc44, 0xff8800];
+const cars = [];
+
+function makeCarMesh(color) {
+  const group = new THREE.Group();
+  const mat  = new THREE.MeshLambertMaterial({color});
+  const dark = new THREE.MeshLambertMaterial({color:0x111111});
+  // Body — long axis along Z so rotation.y=0 means facing +Z
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.26,0.13,0.48), mat);
+  body.position.y = 0.07;
+  group.add(body);
+  // Cabin
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.12,0.26), mat);
+  cabin.position.set(0,0.19,0);
+  group.add(cabin);
+  // 4 wheels — axles along X
+  const wGeo = new THREE.CylinderGeometry(0.055,0.055,0.07,8);
+  [[0.15,0.05, 0.16],[0.15,0.05,-0.16],[-0.15,0.05, 0.16],[-0.15,0.05,-0.16]]
+    .forEach(([wx,wy,wz])=>{
+      const w=new THREE.Mesh(wGeo,dark);
+      w.rotation.z=Math.PI/2; // axle along X
+      w.position.set(wx,wy,wz);
+      group.add(w);
+    });
+  return group;
+}
+
+function spawnCar() {
+  if (cars.length >= MAX_CARS) return;
+  const roadTiles = [];
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    if (tiles[x][z].type==='road') roadTiles.push({x,z});
+  }
+  if (roadTiles.length < 2) return;
+
+  const startIdx = Math.floor(Math.random()*roadTiles.length);
+  let destIdx = Math.floor(Math.random()*(roadTiles.length-1));
+  if (destIdx >= startIdx) destIdx++;
+
+  const start = roadTiles[startIdx];
+  const dest  = roadTiles[destIdx];
+  const path  = astar(start.x,start.z,dest.x,dest.z);
+  if (!path||path.length<2) return;
+
+  const color = CAR_COLORS[Math.floor(Math.random()*CAR_COLORS.length)];
+  const mesh  = makeCarMesh(color);
+  // lane: +1 = left lane, -1 = right lane (two-way traffic)
+  const lane  = cars.length%2===0 ? 1 : -1;
+  mesh.position.set(start.x, 0.14, start.z);
+  scene.add(mesh);
+  cars.push({ mesh, path, pathIdx:0, stepT:0, speed:0.016+Math.random()*0.008, lane });
+}
+
+function stepCars() {
+  for (let i=cars.length-1;i>=0;i--) {
+    const c = cars[i];
+    const from = c.path[c.pathIdx];
+    const to   = c.path[c.pathIdx+1];
+
+    if (!from||!to) {
+      const cur = c.path[c.path.length-1]||c.path[0];
+      const roadTiles=[];
+      for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+        if (tiles[x][z].type==='road') roadTiles.push({x,z});
+      }
+      const others = roadTiles.filter(r=>r.x!==cur.x||r.z!==cur.z);
+      if (!others.length) { scene.remove(c.mesh); cars.splice(i,1); continue; }
+      const dest = others[Math.floor(Math.random()*others.length)];
+      const newPath = astar(cur.x,cur.z,dest.x,dest.z);
+      if (!newPath||newPath.length<2) { scene.remove(c.mesh); cars.splice(i,1); continue; }
+      c.path=newPath; c.pathIdx=0; c.stepT=0;
+      continue;
+    }
+
+    c.stepT += c.speed;
+    const t = Math.min(c.stepT, 1);
+    const dx = to.x-from.x, dz = to.z-from.z;
+    const len = Math.sqrt(dx*dx+dz*dz)||1;
+
+    // Perpendicular for lane offset: rotate direction 90° CCW
+    const px = -dz/len, pz = dx/len;
+    const LANE_W = 0.18;
+
+    const bx = from.x + dx*t + px*LANE_W*c.lane;
+    const bz = from.z + dz*t + pz*LANE_W*c.lane;
+
+    c.mesh.position.set(bx, 0.14, bz);
+
+    // Correct facing: body long axis is Z, so facing +Z = rotation.y=0
+    // atan2(dx,dz) gives 0 when dz=1 (moving +Z) — correct
+    if (dx||dz) c.mesh.rotation.y = Math.atan2(dx, dz);
+
+    if (c.stepT>=1) {
+      c.stepT=0; c.pathIdx++;
+    }
+    // Record road use for traffic density colouring
+    const tx=Math.round(c.mesh.position.x), tz=Math.round(c.mesh.position.z);
+    if (inBounds(tx,tz)&&(tiles[tx][tz].type==='road'||tiles[tx][tz].type==='bridge')) {
+      recordRoadUse(tx,tz);
+    }
+  }
+}
+function maintainTraffic() {
+  const roadTiles=[];
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    if (tiles[x][z].type==='road') roadTiles.push(1);
+  }
+  if (roadTiles.length >= 2) {
+    // Spawn up to 3 cars per tick until cap is reached
+    const toSpawn = Math.min(3, MAX_CARS - cars.length);
+    for (let i=0;i<toSpawn;i++) spawnCar();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  CITIZEN AI  — state machine: home → goingToShop → shopping → home
+//  Each citizen has a wallet. They spend at com (goods decrease),
+//  com earns revenue, revenue flows to city budget.
+// ═══════════════════════════════════════════════════════
+const MAX_CITIZENS   = 40;
+const CITIZEN_SALARY = 3;    // $ added to citizen wallet per economy tick from their home res
+const WALLET_START   = 10;   // starting wallet balance
+const SHOP_WAIT      = 90;   // frames citizen stays at com (shopping animation)
+const HOME_WAIT_MIN  = 60;   // min frames resting at home before next trip
+const HOME_WAIT_MAX  = 180;
+
+const citizenGeo  = new THREE.CapsuleGeometry(0.11, 0.22, 4, 8);
+const CMAT_COLORS = [0xff6b6b,0xffd93d,0x6bcb77,0x4d96ff,0xff922b,0xcc5de8,0x74c0fc];
+const citizenMats = CMAT_COLORS.map(c=>new THREE.MeshLambertMaterial({color:c}));
+const citizens    = [];
+
+// ── helpers ──
+function buildCitizenPath(fromX,fromZ,toX,toZ) {
+  const startR=nearestRoad(fromX,fromZ);
+  const endR  =nearestRoad(toX,toZ);
+  if (!startR||!endR) return null;
+  return astar(startR.x,startR.z,endR.x,endR.z);
+}
+
+function pickComTarget(hx,hz) {
+  // Prefer com tiles that have goods > 0 and are nearest
+  let best=null, bestScore=Infinity;
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    if (tiles[x][z].type!=='com') continue;
+    const st=getComStore(x,z);
+    if (!st||st.goods<=0) continue;           // skip empty shelves
+    const d=Math.abs(x-hx)+Math.abs(z-hz);
+    if (d<bestScore) { bestScore=d; best={x,z}; }
+  }
+  // Fallback: any com tile even if empty (citizen will wait outside)
+  if (!best) {
+    for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+      if (tiles[x][z].type!=='com') continue;
+      const d=Math.abs(x-hx)+Math.abs(z-hz);
+      if (d<bestScore) { bestScore=d; best={x,z}; }
+    }
+  }
+  return best;
+}
+
+// Find nearest com that has buildingMoney >= WORK_WAGE to pay the citizen
+function pickWorkTarget(hx,hz) {
+  let best=null, bestDist=Infinity;
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    if (tiles[x][z].type!=='com') continue;
+    const st=getComStore(x,z);
+    if (!st||st.buildingMoney<WORK_WAGE) continue; // can't afford to pay worker
+    const d=Math.abs(x-hx)+Math.abs(z-hz);
+    if (d<bestDist) { bestDist=d; best={x,z}; }
+  }
+  return best; // null if no com can afford wages
+}
+
+// ── spawn ──
+function spawnCitizenFrom(hx,hz) {
+  if (citizens.length>=MAX_CITIZENS) return;
+  const startR=nearestRoad(hx,hz);
+  if (!startR) return;
+
+  const matIdx=Math.floor(Math.random()*citizenMats.length);
+  const mesh=new THREE.Mesh(citizenGeo, citizenMats[matIdx].clone()); // clone so we can tint
+  mesh.position.set(startR.x,0.28,startR.z);
+  mesh.castShadow=true;
+  scene.add(mesh);
+
+  citizens.push({
+    mesh,
+    homeX:hx, homeZ:hz,
+    destX:hx, destZ:hz,
+    state:'home',
+    path:[], pathIdx:0, stepT:0,
+    speed:0.018+Math.random()*0.016,
+    wait:HOME_WAIT_MIN+Math.floor(Math.random()*(HOME_WAIT_MAX-HOME_WAIT_MIN)),
+    wallet:WALLET_START,
+    shopTimer:0,
+    matIdx,
+    sideOffset: (citizens.length%2===0 ? 0.32 : -0.32) // left/right sidewalk
+  });
+  // Visual polish: tiny hat
+  const hat=new THREE.Mesh(new THREE.ConeGeometry(0.09,0.15,6),new THREE.MeshLambertMaterial({color:0x332211}));
+  hat.position.set(0,0.24,0);
+  mesh.add(hat);
+  updateUI();
+}
+
+function maintainCitizens() {
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    if (tiles[x][z].type!=='res') continue;
+    const lv=tiles[x][z].level;
+    const own=citizens.filter(c=>c.homeX===x&&c.homeZ===z).length;
+    if (own<lv&&citizens.length<MAX_CITIZENS) spawnCitizenFrom(x,z);
+  }
+}
+
+// ── state transitions ──
+// Decision point: citizen wakes up at home and picks next goal
+function citizenDecideAction(c) {
+  const needsWork = c.wallet < WORK_WALLET_THRESHOLD;
+
+  if (needsWork) {
+    // Try to find paid work at a com building
+    const workTarget = pickWorkTarget(c.homeX, c.homeZ);
+    if (workTarget) {
+      const path = buildCitizenPath(c.homeX, c.homeZ, workTarget.x, workTarget.z);
+      if (path && path.length >= 2) {
+        c.destX=workTarget.x; c.destZ=workTarget.z;
+        c.path=path; c.pathIdx=0; c.stepT=0;
+        c.state='goingToWork';
+        return;
+      }
+    }
+    // No work available — fall through to shopping (window-shop/wait)
+  }
+
+  // Wallet is healthy (or no work found) — go shopping
+  const com = pickComTarget(c.homeX, c.homeZ);
+  if (!com) { c.state='home'; c.wait=HOME_WAIT_MIN; return; }
+  const path = buildCitizenPath(c.homeX, c.homeZ, com.x, com.z);
+  if (!path || path.length<2) { c.state='home'; c.wait=HOME_WAIT_MIN; return; }
+  c.destX=com.x; c.destZ=com.z;
+  c.path=path; c.pathIdx=0; c.stepT=0;
+  c.state='goingToShop';
+}
+
+function citizenArriveAtShop(c) {
+  c.state='shopping';
+  c.shopTimer=SHOP_WAIT;
+  const st=getComStore(c.destX,c.destZ);
+  const comT=tiles[c.destX]?.[c.destZ];
+  if (st && comT && comT.type==='com' && st.goods>0 && c.wallet>=SALE_PRICE) {
+    const qty  = Math.min(1, Math.floor(c.wallet/SALE_PRICE));
+    const paid = qty*SALE_PRICE;
+    // Happy citizens spend more (up to 1.5× the base price)
+    const actualPaid = Math.ceil(paid * happinessMult());
+    c.wallet  -= paid; // wallet still only loses base amount
+    st.goods   = Math.max(0, st.goods - GOODS_PER_SALE*qty);
+    st.revenue += actualPaid;
+    st.buildingMoney += actualPaid;
+    citizenEarningsTotal += actualPaid;
+    money += actualPaid;
+    showSpendFloat(c.destX, c.destZ, actualPaid);
+  }
+}
+
+// Citizen arrives at com to work: building pays wage from its own cash reserve
+function citizenArriveAtWork(c) {
+  c.state='working';
+  c.shopTimer=WORK_WAIT;  // reuse shopTimer field for work duration
+  const st=getComStore(c.destX,c.destZ);
+  const comT=tiles[c.destX]?.[c.destZ];
+  if (st && comT && comT.type==='com' && st.buildingMoney>=WORK_WAGE) {
+    st.buildingMoney -= WORK_WAGE;
+    c.wallet         += WORK_WAGE;
+    st.revenue       += WORK_WAGE; // count wages as economic activity
+    // Show wage float above the building, earn float above citizen
+    showIncomeFloat(c.destX, c.destZ, WORK_WAGE);
+  }
+}
+
+function citizenReturnHome(c) {
+  const path=buildCitizenPath(c.destX,c.destZ,c.homeX,c.homeZ);
+  if (!path||path.length<2) {
+    c.state='home';
+    c.wait=HOME_WAIT_MIN;
+    return;
+  }
+  c.path=path; c.pathIdx=0; c.stepT=0;
+  c.state='tohome'; // transit state (reuses stepCitizens movement)
+}
+
+// ── per-frame step ──
+function stepCitizens() {
+  for (const c of citizens) {
+
+    // ── HOME: waiting, then decide to shop or work ──
+    if (c.state==='home') {
+      if (c.wait>0) { c.wait--; }
+      else { citizenDecideAction(c); }
+      continue;
+    }
+
+    // ── SHOPPING: standing at counter ──
+    if (c.state==='shopping') {
+      if (c.shopTimer>0) { c.shopTimer--; }
+      else { citizenReturnHome(c); }
+      continue;
+    }
+
+    // ── WORKING: earning wages at com building ──
+    if (c.state==='working') {
+      if (c.shopTimer>0) { c.shopTimer--; }
+      else { citizenReturnHome(c); }
+      continue;
+    }
+
+    // ── WALKING (goingToShop | goingToWork | tohome) ──
+    const from=c.path[c.pathIdx];
+    const to  =c.path[c.pathIdx+1];
+
+    if (!from||!to) {
+      // Arrived at destination
+      if      (c.state==='goingToShop') { citizenArriveAtShop(c); }
+      else if (c.state==='goingToWork') { citizenArriveAtWork(c); }
+      else { // tohome
+        c.state='home';
+        c.wait=HOME_WAIT_MIN+Math.floor(Math.random()*(HOME_WAIT_MAX-HOME_WAIT_MIN));
+        const hr=nearestRoad(c.homeX,c.homeZ);
+        if (hr) c.mesh.position.set(hr.x + c.sideOffset*0.5, 0.28, hr.z + c.sideOffset*0.5);
+      }
+      continue;
+    }
+
+    c.stepT+=c.speed;
+    if (c.stepT>=1) {
+      c.stepT=0; c.pathIdx++;
+      // Snap to waypoint with sidewalk offset
+      const ndx=c.path[c.pathIdx+1]?c.path[c.pathIdx+1].x-to.x:0;
+      const ndz=c.path[c.pathIdx+1]?c.path[c.pathIdx+1].z-to.z:0;
+      const nlen=Math.sqrt(ndx*ndx+ndz*ndz)||1;
+      c.mesh.position.set(to.x - (ndz/nlen)*c.sideOffset, 0.28, to.z + (ndx/nlen)*c.sideOffset);
+    } else {
+      // Direction of travel
+      const dx=to.x-from.x, dz=to.z-from.z;
+      const len=Math.sqrt(dx*dx+dz*dz)||1;
+      // Perpendicular (rotate 90°): (-dz, dx)
+      const px=-dz/len, pz=dx/len;
+      const t=c.stepT;
+      c.mesh.position.x=from.x+dx*t + px*c.sideOffset;
+      c.mesh.position.z=from.z+dz*t + pz*c.sideOffset;
+      c.mesh.position.y=0.28+Math.sin(Date.now()*0.014+c.mesh.id)*0.03;
+      if (dx||dz) c.mesh.rotation.y=Math.atan2(dx,dz);
+    }
+
+    // Colour: broke→grey, working→yellow tint, shopping→normal
+    if (c.state==='goingToWork') {
+      c.mesh.material.color.setHex(0xffe066); // yellow = heading to work
+    } else if (c.wallet<SALE_PRICE) {
+      c.mesh.material.color.setHex(0x888888); // grey = broke
+    } else {
+      c.mesh.material.color.setHex(CMAT_COLORS[c.matIdx]); // normal colour
+    }
+  }
+}
+
+// ── economy tick: pay citizen salaries + regen goods + regen building money + ind production ──
+function tickCitizenEconomy() {
+  const hm = happinessMult(); // 0.5–1.5 based on cityHappiness
+
+  // Pay salaries from res buildings into citizen wallets (boosted by happiness)
+  for (const c of citizens) {
+    const t=tiles[c.homeX]?.[c.homeZ];
+    if (t&&t.type==='res') c.wallet += Math.ceil(CITIZEN_SALARY*t.level*hm);
+  }
+
+  // Regen goods and building money in com buildings
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    const t=tiles[x][z];
+    if (t.type==='com') {
+      const st=ensureComStore(x,z);
+      const lv=t.level;
+      const powered=hasPower(x,z);
+      // Goods regen from internal stock (small baseline; bulk comes from ind deliveries)
+      const goodsRate = powered ? Math.ceil(GOODS_REGEN*lv*0.4) : 1;
+      st.goods=Math.min(GOODS_MAX, st.goods+goodsRate);
+      const moneyRate = powered ? BLDG_MONEY_REGEN*lv : 1;
+      st.buildingMoney = Math.min(BLDG_MONEY_MAX, st.buildingMoney+moneyRate);
+      updateComGlow(x,z);
+    }
+
+    // Industrial production
+    if (t.type==='ind') {
+      const ist=ensureIndStore(x,z);
+      const powered=hasPower(x,z);
+      const rate=powered ? IND_PROD_RATE*t.level : IND_PROD_UNPOW;
+      ist.goods=Math.min(ist.capacity, ist.goods+rate);
+      // Spawn delivery truck when enough goods accumulated
+      if (ist.goods>=IND_DELIVER_AMT) spawnTruck(x,z);
+    }
+  }
+}
+
+// Update the glow sphere on top of com buildings to show stock level
+function updateComGlow(x,z) {
+  const meshes=buildingMeshes[`${x}_${z}`];
+  if (!meshes) return;
+  const glowMesh=meshes.find(m=>m.geometry?.type==='BoxGeometry'&&m.position.y>2);
+  // Actually the top piece — let's use emissive tinting on the body instead
+  const bodyMesh=meshes[0];
+  if (!bodyMesh||!bodyMesh.material) return;
+  const st=getComStore(x,z);
+  if (!st) return;
+  const pct=st.goods/GOODS_MAX;
+  // Full stock: normal COM color. Empty: darker/desaturated.
+  const lv=tiles[x][z].level-1;
+  if (hasPower(x,z)) {
+    const r=((COM_COLORS[lv]>>16)&0xff);
+    const g=((COM_COLORS[lv]>>8)&0xff);
+    const b=(COM_COLORS[lv]&0xff);
+    bodyMesh.material.color.setRGB(
+      (r/255)*pct + 0.25*(1-pct),
+      (g/255)*pct + 0.15*(1-pct),
+      (b/255)*pct + 0.05*(1-pct)
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  ECONOMY  (demand modifies income rates)
+// ═══════════════════════════════════════════════════════
+function calcIncome() {
+  let inc=0;
+  const rd=demand.res/100;
+  const hm=happinessMult();
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    const t=tiles[x][z];
+    if (t.type!=='res') continue;
+    if (!hasPower(x,z)) continue;
+    const lvBonus = 0.5 + landValue[x][z]/100;
+    inc += Math.ceil(t.level * (0.5+rd) * lvBonus * hm);
+  }
+  return Math.max(0, Math.round((inc - fireIncomeHit()) * taxMultiplier()));
+}
+
+// ═══════════════════════════════════════════════════════
+//  ECONOMY  — server-authoritative when connected,
+//             local fallback when offline (file://)
+// ═══════════════════════════════════════════════════════
+
+// Called by net.onMessage when the server pushes an economy snapshot.
+// Updates all display-facing state from the server's numbers.
+function applyEconomySnapshot(econ) {
+  money                = econ.money;
+  population           = econ.population;
+  cityHappiness        = econ.happiness;
+  citizenEarningsTotal = econ.citizenEarningsTotal;
+  demand.res           = econ.demand.res;
+  demand.com           = econ.demand.com;
+
+  // Land values — 2-D array
+  if (econ.landValues) {
+    for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+      landValue[x][z] = econ.landValues[x]?.[z] ?? 0;
+    }
+  }
+  // Com / Ind store snapshots for inspect panel and glow
+  if (econ.comStores) {
+    Object.entries(econ.comStores).forEach(([k,v])=>{ comStore[k]=v; });
+    // Remove any stores that no longer exist server-side
+    Object.keys(comStore).forEach(k=>{ if(!econ.comStores[k]) delete comStore[k]; });
+  }
+  if (econ.indStores) {
+    Object.entries(econ.indStores).forEach(([k,v])=>{ indStore[k]=v; });
+    Object.keys(indStore).forEach(k=>{ if(!econ.indStores[k]) delete indStore[k]; });
+  }
+
+  // Refresh com building glow colours
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    if (tiles[x][z].type==='com') updateComGlow(x,z);
+  }
+
+  // Update all HUD displays
+  updateDemandBars();
+  updateHappinessHUD();
+  updatePowerHUD();
+  updateUI();
+
+  // Show income float on random res tiles
+  if (econ.incomeThisTick>0) {
+    for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+      const t=tiles[x][z];
+      if (t.type==='res'&&hasPower(x,z)&&Math.random()<0.12) {
+        const earn=Math.ceil(t.level*(0.5+demand.res/100)*(0.5+landValue[x][z]/100)*happinessMult());
+        showIncomeFloat(x,z,earn);
+      }
+    }
+  }
+}
+
+// ── Local economy tick (offline / single-player fallback) ──
+function localEconomyTick() {
+  if (net.connected) return; // server is handling it
+  recomputeLandValues();
+  recomputeHappiness();
+  tickCitizenEconomy();
+  tickDisasters();
+  tickMaintenance();
+  recordStats();
+  const inc=calcIncome();
+  money+=inc;
+  tickDemand();
+  maintainCitizens();
+  maintainTraffic();
+  tickTrafficDecay();
+  updatePowerHUD();
+  updateUI();
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    const t=tiles[x][z];
+    if (t.type==='res'&&hasPower(x,z)&&Math.random()<0.12) {
+      const earn=Math.ceil(t.level*(0.5+demand.res/100)*(0.5+landValue[x][z]/100)*happinessMult());
+      showIncomeFloat(x,z,earn);
+    }
+  }
+}
+
+// Always run citizen/truck visuals locally (they are cosmetic)
+// Also run maintainCitizens when connected so pedestrians appear
+setInterval(()=>{
+  if (net.connected) maintainCitizens();
+  localEconomyTick();
+  maintainTraffic(); // traffic is visual-only — always run regardless of server
+}, 2000);
+
+// ═══════════════════════════════════════════════════════
+//  CAMERA
+// ═══════════════════════════════════════════════════════
+let camTheta=0.7, camPhi=0.62, camR=32;
+const camTarget=new THREE.Vector3(SIZE/2,0,SIZE/2);
+let isDragging=false, prevMouse={x:0,y:0};
+
+function refreshCamera() {
+  camera.position.x=camTarget.x+camR*Math.sin(camTheta)*Math.cos(camPhi);
+  camera.position.y=camR*Math.sin(camPhi);
+  camera.position.z=camTarget.z+camR*Math.cos(camTheta)*Math.cos(camPhi);
+  camera.lookAt(camTarget);
+}
+refreshCamera();
+renderer.domElement.addEventListener('mousedown',e=>{isDragging=true;prevMouse={x:e.clientX,y:e.clientY};});
+window.addEventListener('mouseup',()=>isDragging=false);
+window.addEventListener('mousemove',e=>{
+  if(!isDragging)return;
+  camTheta-=(e.clientX-prevMouse.x)*0.006;
+  camPhi=Math.max(0.15,Math.min(1.35,camPhi-(e.clientY-prevMouse.y)*0.006));
+  prevMouse={x:e.clientX,y:e.clientY};
+  refreshCamera();
+});
+renderer.domElement.addEventListener('wheel',e=>{
+  camR=Math.max(8,Math.min(70,camR+e.deltaY*0.04));
+  refreshCamera();
+});
+
+// ═══════════════════════════════════════════════════════
+//  RAYCASTER / CLICK  — fixed
+// ═══════════════════════════════════════════════════════
+const raycaster  = new THREE.Raycaster();
+const mouse2     = new THREE.Vector2();
+
+// Flat list of just the ground tile meshes — the only targets we raycast against.
+// Building bodies, roofs, citizen capsules etc. are never in this list, so we
+// always get the correct grid tile regardless of what's stacked on top of it.
+const tilePickTargets = [];
+for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) tilePickTargets.push(tileMeshes[x][z]);
+
+// Track mouse displacement between mousedown and click so tiny jitter on a
+// stationary click doesn't cancel the action.  Only ignore if the mouse
+// actually moved more than 5 px — that's a deliberate drag, not noise.
+let mouseDownPos = {x:0, y:0};
+renderer.domElement.addEventListener('mousedown', e=>{
+  mouseDownPos = {x:e.clientX, y:e.clientY};
+});
+
+renderer.domElement.addEventListener('click', e=>{
+  const dx = e.clientX - mouseDownPos.x;
+  const dy = e.clientY - mouseDownPos.y;
+  if (Math.sqrt(dx*dx+dy*dy) > 5) return; // was a drag, not a click
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse2.x =  ((e.clientX - rect.left)  / rect.width)  * 2 - 1;
+  mouse2.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+  raycaster.setFromCamera(mouse2, camera);
+
+  // Only test against the flat ground tiles — always returns the correct cell
+  const hits = raycaster.intersectObjects(tilePickTargets);
+  if (!hits.length) return;
+
+  // Grid coords come from userData set when the tile was created — no rounding error
+  const {gx, gz} = hits[0].object.userData;
+  if (!inBounds(gx, gz)) return;
+  handleTileClick(gx, gz);
+});
+
+function handleTileClick(x,z) {
+  const t=tiles[x][z];
+  if(mode==='view')   {inspectTile(x,z);return;}
+  // Block all building/demolish when visiting another city
+  if(visitMode) { showToast('Read only — visiting city',x,z,'#7eb8ff'); return; }
+  if(mode==='demolish'){
+    if(tiles[x][z].type==='bridge'){
+      // Demolish bridge — revert to river tile
+      clearBuilding(x,z);
+      tiles[x][z]={type:'empty',level:0};
+      tileMeshes[x][z].material.color.setHex(0x1a3a6a); // river colour
+    } else {
+      demolish(x,z);
+      if(!isRiverTile(x,z) && !isMountainTile(x,z)) spawnTreeAt(x,z);
+    }
+    updateUI();inspectTile(x,z);return;
+  }
+  // Bus mode — pick two road tiles as stops
+  if(mode==='bus'){ handleBusClick(x,z); return; }
+  // Bridge mode — only on river tiles
+  if(mode==='bridge'){
+    if(!isRiverTile(x,z)){showToast('Bridge only on river!',x,z,'#4488ff');return;}
+    if(tiles[x][z].type==='bridge'){showToast('Already a bridge',x,z,'#ffaa44');return;}
+    if(money<BUILD_COST.bridge){showToast('No funds!',x,z,'#ff6666');return;}
+    buildBridge(x,z);
+    updateUI(); inspectTile(x,z); return;
+  }
+  if(t.type!=='empty'){showToast('Tile occupied',x,z,'#ffaa44');return;}
+  if(isRiverTile(x,z)){showToast('Use Bridge mode on water!',x,z,'#4488ff');return;}
+  if(isMountainTile(x,z)){showToast('Cannot build on mountain!',x,z,'#aa8866');return;}
+  removeTreeAt(x,z);
+  if(mode==='road'){
+    if(money<BUILD_COST.road){showToast('No funds!',x,z,'#ff6666');return;}
+    buildRoad(x,z);
+  } else if(mode==='res'){
+    if(money<BUILD_COST.res){showToast('No funds!',x,z,'#ff6666');return;}
+    if(!buildRes(x,z))return;
+  } else if(mode==='com'){
+    if(money<BUILD_COST.com){showToast('No funds!',x,z,'#ff6666');return;}
+    buildCom(x,z);
+  } else if(mode==='ind'){
+    if(money<BUILD_COST.ind){showToast('No funds!',x,z,'#ff6666');return;}
+    if(!buildInd(x,z))return;
+  } else if(mode==='power'){
+    if(money<BUILD_COST.power){showToast('No funds!',x,z,'#ff6666');return;}
+    buildPower(x,z);
+  } else if(['park','school','hospital','firestation'].includes(mode)){
+    if(money<SPECIAL_COST[mode]){showToast('No funds!',x,z,'#ff6666');return;}
+    if(!buildSpecial(x,z,mode))return;
+  }
+  updateUI(); inspectTile(x,z);
+}
+
+// ═══════════════════════════════════════════════════════
+//  INSPECT PANEL
+// ═══════════════════════════════════════════════════════
+function inspectTile(x,z) {
+  selectedTileRef={x,z};
+  const t=tiles[x][z];
+  const panel=document.getElementById('info-panel');
+  const ubtn =document.getElementById('upgrade-btn');
+  ubtn.style.display='none';
+  const ICONS={empty:'🌱',road:'🛣️',res:'🏠',com:'🏢',power:'⚡',ind:'🏭',bridge:'🌉',firestation:'🚒'};
+
+  // Land value bar helper
+  const lv=Math.round(landValue[x][z]);
+  const lvCol = lv>=60?'#4ddb88':lv>=30?'#ffd060':'#ff6b6b';
+  const lvBar=`<br><span style="color:#6888aa">Land value:</span> <span style="color:${lvCol};font-weight:600">${lv}</span>/100 `+
+    `<span style="color:#334">${'▓'.repeat(Math.floor(lv/12))}${'░'.repeat(8-Math.floor(lv/12))}</span>`;
+
+  if(t.type==='empty') {
+    const isRiver = isRiverTile(x,z);
+    const isMtn   = isMountainTile(x,z);
+    const elev    = terrainHeight[x]?.[z] || 0;
+    panel.innerHTML=`<div class="tile-title">${isRiver?'🌊':isMtn?'⛰️':ICONS.empty} ${isRiver?'River':isMtn?'Mountain':'Empty'} [${x},${z}]</div>`+
+      `${isRiver?'Place a Bridge to cross':''}${isMtn?`Elevation: ${(elev*100).toFixed(0)}%`:''}${!isRiver&&!isMtn?`Power: ${hasPower(x,z)?'✓ covered':'✗ none'}`:''}`+lvBar;
+
+  } else if(t.type==='road') {
+    const tc = roadTraffic[`${x}_${z}`]||0;
+    const tcBar = tc>0?`<br><span style="color:#6888aa">Traffic:</span> <span style="color:${tc>20?'#ff6b6b':tc>8?'#ffd060':'#4ddb88'}">${tc>20?'Heavy':tc>8?'Moderate':'Light'}</span> (${tc} trips)`:'';
+    panel.innerHTML=`<div class="tile-title">${ICONS.road} Road [${x},${z}]</div>Citizens route via A*<br>Power: ${hasPower(x,z)?'✓':'✗'}${tcBar}${lvBar}`;
+
+  } else if(t.type==='bridge') {
+    panel.innerHTML=`<div class="tile-title">${ICONS.bridge} Bridge [${x},${z}]</div>Crosses river — walkable by citizens &amp; cars<br>Demolish to remove`;
+
+  } else if(t.type==='power') {
+    panel.innerHTML=`<div class="tile-title">${ICONS.power} Power Plant [${x},${z}]</div>Supply: ${POWER_SUPPLY} units<br>Coverage: ${POWER_RADIUS} tiles${lvBar}`;
+
+  } else if(t.type==='firestation') {
+    const covered = getFirestationCoverage(x,z);
+    panel.innerHTML=`<div class="tile-title">${ICONS.firestation} Fire Station [${x},${z}]</div>`+
+      `Coverage radius: ${FIRESTATION_RADIUS} tiles<br>`+
+      `Protected tiles: ${covered}<br>`+
+      `<span style="color:#4ddb88">Active fires suppressed faster in range</span>${lvBar}`;
+
+  } else if(t.type==='res') {
+    const own=citizens.filter(c=>c.homeX===x&&c.homeZ===z);
+    const pw=hasPower(x,z);
+    const inc=pw?Math.ceil(t.level*(0.5+demand.res/100)*(0.5+landValue[x][z]/100)):0;
+    const gt=growthTimers[`${x}_${z}`]||0;
+    const speedBoost=pw&&hasAdjacentRoad(x,z)&&t.level<3?(1+demand.com/50).toFixed(1):'—';
+    const growBar=t.level<3&&pw&&hasAdjacentRoad(x,z)
+      ? `<br>Growth: ${'▓'.repeat(Math.floor(gt/GROWTH_THRESHOLD*8))}${'░'.repeat(8-Math.floor(gt/GROWTH_THRESHOLD*8))} ×${speedBoost}`
+      : (t.level>=3?'<br><span style="color:#4ddb88">Max level</span>':'<br><span style="color:#ff8844">Needs road+power</span>');
+    const lvNeeded=t.level<3?LV_UPGRADE_MIN[t.level]:0;
+    const lvGate=t.level<3?`<br><span style="color:${lv>=lvNeeded?'#4ddb88':'#ff8844'}">LV gate: ${lv}/${lvNeeded}</span>`:'';
+    // Citizen wallet summary
+    const avgWallet=own.length?Math.round(own.reduce((s,c)=>s+c.wallet,0)/own.length):0;
+    const stateMap=own.reduce((m,c)=>{m[c.state]=(m[c.state]||0)+1;return m},{});
+    const STATE_LABELS = {home:'home',goingToShop:'→shop',shopping:'shopping',goingToWork:'→work',working:'working',tohome:'→home'};
+    const stateStr=Object.entries(stateMap).map(([s,n])=>`${n} ${STATE_LABELS[s]||s}`).join(', ')||'none';
+    panel.innerHTML=`
+      <div class="tile-title">${ICONS.res} Residential [${x},${z}]</div>
+      Level ${t.level}/3 &nbsp;${stars}<br>
+      Income: +$${inc}/tick &nbsp; Pop: ${POP_PER_LEVEL[t.level-1]}<br>
+      Residents: ${own.length}/${t.level} &nbsp; Road: ${hasAdjacentRoad(x,z)?'✓':'✗'} &nbsp; Power: ${pw?'✓':'✗'}<br>
+      Avg wallet: $${avgWallet} &nbsp; Salary: +$${CITIZEN_SALARY*t.level}/tick<br>
+      <span style="color:#6888aa">States:</span> ${stateStr}
+      ${lvBar}${lvGate}${growBar}
+    `;
+    if(t.level<3){
+      ubtn.style.display='block';
+      ubtn.textContent=`⬆ Lv${t.level+1} ($${UPGRADE_COSTS[t.level-1]}) — LV≥${LV_UPGRADE_MIN[t.level]} req`;
+      ubtn.disabled=money<UPGRADE_COSTS[t.level-1]||!pw||lv<LV_UPGRADE_MIN[t.level];
+    }
+
+  } else if(t.type==='com') {
+    const adj=countAdjacentRes(x,z);
+    const pw=hasPower(x,z);
+    const gt=growthTimers[`${x}_${z}`]||0;
+    const speedBoost=pw&&hasAdjacentRoad(x,z)&&t.level<3?(1+demand.res/50).toFixed(1):'—';
+    const growBar=t.level<3&&pw&&hasAdjacentRoad(x,z)
+      ? `<br>Growth: ${'▓'.repeat(Math.floor(gt/GROWTH_THRESHOLD*8))}${'░'.repeat(8-Math.floor(gt/GROWTH_THRESHOLD*8))} ×${speedBoost}`
+      : (t.level>=3?'<br><span style="color:#4ddb88">Max level</span>':'<br><span style="color:#ff8844">Needs road+power</span>');
+    const lvNeeded=t.level<3?LV_UPGRADE_MIN[t.level]:0;
+    const lvGate=t.level<3?`<br><span style="color:${lv>=lvNeeded?'#4ddb88':'#ff8844'}">LV gate: ${lv}/${lvNeeded}</span>`:'';
+    const st=getComStore(x,z)||{goods:0,revenue:0,buildingMoney:0};
+    const goodsPct=Math.round(st.goods/GOODS_MAX*100);
+    const goodsCol=goodsPct>50?'#4ddb88':goodsPct>20?'#ffd060':'#ff6b6b';
+    const goodsBar=`${'▓'.repeat(Math.floor(goodsPct/12))}${'░'.repeat(8-Math.floor(goodsPct/12))}`;
+    const moneyPct=Math.round(st.buildingMoney/BLDG_MONEY_MAX*100);
+    const moneyBar=`${'▓'.repeat(Math.floor(moneyPct/12))}${'░'.repeat(8-Math.floor(moneyPct/12))}`;
+    const visiting=citizens.filter(c=>(c.state==='goingToShop'||c.state==='shopping')&&c.destX===x&&c.destZ===z).length;
+    const working =citizens.filter(c=>(c.state==='goingToWork' ||c.state==='working')  &&c.destX===x&&c.destZ===z).length;
+    panel.innerHTML=`
+      <div class="tile-title">${ICONS.com} Commercial [${x},${z}]</div>
+      Level ${t.level}/3 &nbsp;${stars} &nbsp; Power: ${pw?'✓':'✗'}<br>
+      <span style="color:#6888aa">Goods:</span> <span style="color:${goodsCol}">${Math.round(st.goods)}/${GOODS_MAX}</span> ${goodsBar}<br>
+      <span style="color:#6888aa">Cash reserve:</span> <span style="color:#74c0fc">$${Math.round(st.buildingMoney)}</span> ${moneyBar}<br>
+      Shoppers: ${visiting} &nbsp;|&nbsp; Workers: ${working}<br>
+      Wage: $${WORK_WAGE}/visit &nbsp; Sale: $${SALE_PRICE}/visit<br>
+      Revenue: $${st.revenue.toLocaleString()} total
+      ${lvBar}${lvGate}${growBar}
+    `;
+    if(t.level<3){
+      ubtn.style.display='block';
+      ubtn.textContent=`⬆ Lv${t.level+1} ($${UPGRADE_COSTS[t.level-1]}) — LV≥${LV_UPGRADE_MIN[t.level]} req`;
+      ubtn.disabled=money<UPGRADE_COSTS[t.level-1]||!pw||lv<LV_UPGRADE_MIN[t.level];
+    }
+
+  } else if(t.type==='ind') {
+    const pw=hasPower(x,z);
+    const ist=getIndStore(x,z)||{goods:0,capacity:IND_CAPACITY};
+    const stockPct=Math.round(ist.goods/ist.capacity*100);
+    const stockCol=stockPct>60?'#ffd060':stockPct>20?'#aa8844':'#ff6b6b';
+    const stockBar=`${'▓'.repeat(Math.floor(stockPct/12))}${'░'.repeat(8-Math.floor(stockPct/12))}`;
+    const prodRate=pw?IND_PROD_RATE*t.level:IND_PROD_UNPOW;
+    const adjResPenalty=neighbours(x,z).filter(nb=>tiles[nb.x][nb.z].type==='res').length;
+    const activeTrucks=trucks.filter(tr=>tr.fromX===x&&tr.fromZ===z&&!tr.returning).length;
+    panel.innerHTML=`
+      <div class="tile-title">${ICONS.ind} Industrial [${x},${z}]</div>
+      Level ${t.level}/3 &nbsp;${stars} &nbsp; Power: ${pw?'✓':'✗'}<br>
+      <span style="color:#6888aa">Stock:</span> <span style="color:${stockCol}">${Math.round(ist.goods)}/${ist.capacity}</span> ${stockBar}<br>
+      Production: +${prodRate} goods/tick &nbsp; Delivery: ${IND_DELIVER_AMT} per truck<br>
+      Active trucks: ${activeTrucks}
+      ${adjResPenalty>0?`<br><span style="color:#ff8844">⚠ Pollution: −${adjResPenalty*3} happiness (${adjResPenalty} adj. res)</span>`:''}
+      ${lvBar}
+    `;
+    if(t.level<3){
+      ubtn.style.display='block';
+      ubtn.textContent=`⬆ Lv${t.level+1} ($${UPGRADE_COSTS[t.level-1]})`;
+      ubtn.disabled=money<UPGRADE_COSTS[t.level-1]||!pw;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════════════════
+function setMode(m) {
+  mode=m;
+  ['road','res','com','ind','power','park','school','hospital','firestation','bridge','bus','view','demolish'].forEach(k=>{
+    const el=document.getElementById('btn-'+k);
+    if(el) el.classList.toggle('active',k===m);
+  });
+}
+
+function updateUI() {
+  document.getElementById('money').textContent         ='$'+money.toLocaleString();
+  document.getElementById('population').textContent    =population;
+  document.getElementById('citizen-count').textContent =citizens.length;
+  document.getElementById('income-rate').textContent   ='+$'+calcIncome();
+  document.getElementById('citizen-earnings').textContent='$'+citizenEarningsTotal.toLocaleString();
+  if(selectedTileRef) inspectTile(selectedTileRef.x,selectedTileRef.z);
+}
+
+function showToast(msg,x,z,color='#4ddb88') {
+  const el=document.createElement('div');
+  el.className='toast'; el.style.color=color; el.textContent=msg;
+  const bx=x!=null?(x/SIZE)*innerWidth*0.78+80:innerWidth/2;
+  const bz=z!=null?(1-z/SIZE)*innerHeight*0.7+60:innerHeight/2;
+  el.style.left=bx+'px'; el.style.top=bz+'px';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1400);
+}
+
+function showIncomeFloat(x,z,amount) {
+  const v=new THREE.Vector3(x,2,z).project(camera);
+  const sx=(v.x*.5+.5)*innerWidth,sy=(-v.y*.5+.5)*innerHeight;
+  if(sx<0||sx>innerWidth||sy<0||sy>innerHeight)return;
+  const el=document.createElement('div');
+  el.className='toast'; el.textContent='+$'+amount;
+  el.style.left=(sx-12)+'px'; el.style.top=(sy-16)+'px'; el.style.color='#4ddb88';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1300);
+}
+
+// Orange float for citizen spending at a shop
+function showSpendFloat(x,z,amount) {
+  const v=new THREE.Vector3(x,2.5,z).project(camera);
+  const sx=(v.x*.5+.5)*innerWidth,sy=(-v.y*.5+.5)*innerHeight;
+  if(sx<0||sx>innerWidth||sy<0||sy>innerHeight)return;
+  const el=document.createElement('div');
+  el.className='toast'; el.textContent='-$'+amount+' spent';
+  el.style.left=(sx-20)+'px'; el.style.top=(sy-16)+'px'; el.style.color='#ff922b';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1300);
+}
+
+// ═══════════════════════════════════════════════════════
+//  1. DAY / NIGHT CYCLE
+// ═══════════════════════════════════════════════════════
+let dayTime = 0.3;          // 0=midnight  0.5=noon  1=midnight again
+const DAY_SPEED = 0.0003;   // full day in ~55 seconds at 60fps
+const moonLight = new THREE.AmbientLight(0x223355, 0);
+scene.add(moonLight);
+
+// Point lights on buildings that glow at night
+const buildingLights = {}; // "x_z" -> PointLight
+
+function addBuildingLight(x,z,color=0xffdd88) {
+  const key=`${x}_${z}`;
+  if (buildingLights[key]) return;
+  const pl=new THREE.PointLight(color, 0, 3);
+  pl.position.set(x, 2.5, z);
+  scene.add(pl);
+  buildingLights[key]=pl;
+}
+function removeBuildingLight(x,z) {
+  const key=`${x}_${z}`;
+  if (buildingLights[key]) { scene.remove(buildingLights[key]); delete buildingLights[key]; }
+}
+
+function tickDayNight() {
+  dayTime = (dayTime + DAY_SPEED) % 1;
+  const t = dayTime;
+
+  // Sun arc: rises at t=0.25, peaks at t=0.5, sets at t=0.75
+  const sunAngle = (t - 0.25) * Math.PI * 2;
+  sun.position.set(
+    Math.cos(sunAngle) * 30,
+    Math.sin(sunAngle) * 30,
+    15
+  );
+
+  // Sky colour: dawn pink → day blue → dusk orange → night dark
+  let skyR, skyG, skyB;
+  if (t < 0.25) {       // night→dawn
+    const p = t/0.25;
+    skyR=p*0.7; skyG=p*0.5; skyB=0.3+p*0.5;
+  } else if (t < 0.5) { // dawn→noon
+    const p=(t-0.25)/0.25;
+    skyR=0.7-p*0.04; skyG=0.5+p*0.34; skyB=0.8+p*0.06;
+  } else if (t < 0.75) {// noon→dusk
+    const p=(t-0.5)/0.25;
+    skyR=0.66+p*0.3; skyG=0.84-p*0.5; skyB=0.86-p*0.56;
+  } else {               // dusk→night
+    const p=(t-0.75)/0.25;
+    skyR=0.96-p*0.96; skyG=0.34-p*0.34; skyB=0.3-p*0.17;
+  }
+  scene.background.setRGB(skyR, skyG, skyB);
+  scene.fog.color.setRGB(skyR, skyG, skyB);
+
+  // Sun intensity follows a sine over daylight hours
+  const isDay = t>0.22 && t<0.78;
+  const sunIntensity = isDay ? Math.max(0, Math.sin((t-0.25)*Math.PI/0.5)) : 0;
+  sun.intensity = sunIntensity * 1.2;
+
+  // Ambient: blue-dark at night, warm white at day
+  const baseAmbient = isDay ? 0.55 : 0.08;
+  scene.children.filter(c=>c.isAmbientLight).forEach(a=>{
+    a.intensity=baseAmbient;
+    a.color.setRGB(isDay?1:0.3, isDay?1:0.4, isDay?0.95:0.7);
+  });
+
+  // Building lights glow at night
+  const nightFactor = Math.max(0, 1 - sunIntensity * 3);
+  Object.values(buildingLights).forEach(pl=>{ pl.intensity = nightFactor * 1.2; });
+
+  // Send citizens home at night (state machine already handles tohome)
+  if (nightFactor > 0.7) {
+    citizens.forEach(c=>{
+      if (c.state==='goingToShop'||c.state==='shopping') {
+        citizenReturnHome(c);
+      }
+    });
+  }
+
+  // HUD time bar
+  const timeEl=document.getElementById('time-label');
+  const fillEl=document.getElementById('time-fill');
+  if (timeEl&&fillEl) {
+    const hour = Math.floor(t*24);
+    const ampm = hour<12?'AM':'PM';
+    const displayH = ((hour%12)||12);
+    const phase = isDay ? (t<0.5?'🌅':'🌇') : '🌙';
+    timeEl.textContent=`${phase} ${displayH}:00${ampm}`;
+    fillEl.style.width=(t*100)+'%';
+    fillEl.style.background=isDay?'#ffd060':'#4455aa';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  2. SAVE / LOAD
+// ═══════════════════════════════════════════════════════
+function saveCity() {
+  const saveData = {
+    money, population, dayTime,
+    tiles: [],
+    comStore: comStore,
+    indStore: indStore,
+  };
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    const t=tiles[x][z];
+    if (t.type!=='empty') saveData.tiles.push({x,z,type:t.type,level:t.level||1});
+  }
+  localStorage.setItem('pixel_polis_save', JSON.stringify(saveData));
+  saveCityToRegion(); // also persist to world map region
+  showToast('City saved!', null, null, '#4ddb88');
+}
+
+function loadCity() {
+  const raw=localStorage.getItem('pixel_polis_save');
+  if (!raw) { showToast('No save found', null, null, '#ff8844'); return; }
+  const d=JSON.parse(raw);
+
+  // Clear everything
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    if (tiles[x][z].type!=='empty') demolish(x,z);
+  }
+  money=d.money||200; population=0; dayTime=d.dayTime||0.3;
+  if (d.comStore) Object.assign(comStore, d.comStore);
+  if (d.indStore) Object.assign(indStore, d.indStore);
+
+  // Replay tiles — roads first, then buildings
+  const sorted=(d.tiles||[]).slice().sort((a,b)=>{
+    if (a.type==='road' && b.type!=='road') return -1;
+    if (b.type==='road' && a.type!=='road') return 1;
+    if (a.type==='bridge') return 1;
+    if (b.type==='bridge') return -1;
+    return 0;
+  });
+  for (const e of sorted) {
+    if (!inBounds(e.x,e.z)||tiles[e.x][e.z].type!=='empty') continue;
+    if (e.type==='road')     buildRoad(e.x,e.z);
+    else if(e.type==='res')  { buildRes(e.x,e.z); tiles[e.x][e.z].level=e.level; _resMesh(e.x,e.z,e.level); }
+    else if(e.type==='com')  { buildCom(e.x,e.z); tiles[e.x][e.z].level=e.level; _comMesh(e.x,e.z,e.level); }
+    else if(e.type==='ind')  { buildInd(e.x,e.z); tiles[e.x][e.z].level=e.level; _indMesh(e.x,e.z,e.level); }
+    else if(e.type==='power') buildPower(e.x,e.z);
+    else if(e.type==='park')   buildSpecial(e.x,e.z,'park');
+    else if(e.type==='school') buildSpecial(e.x,e.z,'school');
+    else if(e.type==='hospital') buildSpecial(e.x,e.z,'hospital');
+  }
+  // Recalculate population from res tiles
+  population=0;
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    if (tiles[x][z].type==='res') population+=POP_PER_LEVEL[tiles[x][z].level-1];
+  }
+  updateUI();
+  showToast('City loaded!', null, null, '#4ddb88');
+}
+
+// ═══════════════════════════════════════════════════════
+//  3. DISASTERS
+// ═══════════════════════════════════════════════════════
+const fires = {}; // "x_z" -> { mesh, timer }
+let disasterCooldown = 0;
+let budgetCrisisTicks = 0;
+
+function showDisasterBanner(msg) {
+  const el=document.getElementById('disaster-banner');
+  if (!el) return;
+  el.textContent=msg; el.style.display='block';
+  setTimeout(()=>{ el.style.display='none'; }, 3500);
+}
+
+function startFire(x,z) {
+  const key=`${x}_${z}`;
+  if (fires[key]||tiles[x][z].type==='empty'||tiles[x][z].type==='road') return;
+  const fireMesh=new THREE.Mesh(
+    new THREE.SphereGeometry(0.35,6,6),
+    new THREE.MeshLambertMaterial({color:0xff4400, emissive:0xff2200, emissiveIntensity:0.8})
+  );
+  const t=tiles[x][z];
+  const h=(t.type==='res'?RES_HEIGHTS:t.type==='com'?COM_HEIGHTS:IND_HEIGHTS)[(t.level||1)-1]||1;
+  fireMesh.position.set(x, h+0.5, z);
+  scene.add(fireMesh);
+  fires[key]={mesh:fireMesh, timer:300}; // burns for 5 sec at 60fps
+  showDisasterBanner(`🔥 Fire at [${x},${z}]! Income halved nearby.`);
+}
+
+function tickFires() {
+  for (const [key,fire] of Object.entries(fires)) {
+    fire.timer--;
+    const pulse=1+Math.sin(Date.now()*0.02)*0.2;
+    fire.mesh.scale.setScalar(pulse);
+
+    // Fire station in range: accelerate burn-out (station fighting it)
+    const [fx,fz]=key.split('_').map(Number);
+    if (isInFirestationRange(fx,fz)) fire.timer=Math.max(0,fire.timer-3);
+
+    if (fire.timer<=0) {
+      scene.remove(fire.mesh);
+      delete fires[key];
+      demolish(fx,fz);
+    }
+    // Spread — much lower chance if covered by fire station
+    const spreadChance = isInFirestationRange(fx,fz) ? 0.0002 : 0.002;
+    if (Math.random()<spreadChance) {
+      const nbs=neighbours(fx,fz).filter(nb=>tiles[nb.x][nb.z].type!=='empty'&&tiles[nb.x][nb.z].type!=='road'&&!fires[`${nb.x}_${nb.z}`]);
+      if (nbs.length) { const nb=nbs[Math.floor(Math.random()*nbs.length)]; startFire(nb.x,nb.z); }
+    }
+  }
+}
+
+function tickDisasters() {
+  if (disasterCooldown>0) { disasterCooldown--; return; }
+
+  // Budget crisis
+  if (money<0) {
+    budgetCrisisTicks++;
+    if (budgetCrisisTicks>=2) {
+      showDisasterBanner('💸 Budget Crisis! Growth frozen until solvent.');
+      budgetCrisisTicks=0; disasterCooldown=5;
+    }
+    return;
+  } else { budgetCrisisTicks=0; }
+
+  const roll=Math.random();
+
+  // Fire (2% chance per tick when city has buildings)
+  if (roll<0.02) {
+    const bldTiles=[];
+    for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+      if (['res','com','ind'].includes(tiles[x][z].type)) bldTiles.push({x,z});
+    }
+    if (bldTiles.length>0) {
+      const t=bldTiles[Math.floor(Math.random()*bldTiles.length)];
+      startFire(t.x,t.z);
+      disasterCooldown=10;
+    }
+  }
+
+  // Power outage (1% chance — randomly disable a plant for 3 ticks)
+  if (roll>0.98&&powerPlants.length>0) {
+    const pp=powerPlants[Math.floor(Math.random()*powerPlants.length)];
+    showDisasterBanner(`⚡ Power outage at plant [${pp.x},${pp.z}]!`);
+    poweredTiles.clear(); // temporarily blank coverage
+    setTimeout(()=>{ rebuildPowerMap(); refreshAllBuildings(); }, 6000);
+    disasterCooldown=8;
+  }
+}
+
+// Fire penalty to income
+function fireIncomeHit() {
+  return Object.keys(fires).length * 3; // -$3 per active fire tile
+}
+
+// ═══════════════════════════════════════════════════════
+//  4. NEW ZONE TYPES: Park, School, Hospital
+// ═══════════════════════════════════════════════════════
+const SPECIAL_COLORS = { park:0x33aa55, school:0x3377cc, hospital:0xffffff };
+const SPECIAL_COST   = { park:6, school:12, hospital:18 };
+
+function buildSpecial(x,z,type) {
+  if (!hasAdjacentRoad(x,z)) { showToast('Needs a road!',x,z,'#ff8844'); return false; }
+  tiles[x][z]={type,level:1};
+  tileMeshes[x][z].material.color.setHex(SPECIAL_COLORS[type]);
+  _specialMesh(x,z,type);
+  money -= SPECIAL_COST[type];
+  net.send({type:'build',x,z,zone:type});
+  removeTreeAt(x,z);
+  return true;
+}
+
+// Happiness bonus from special buildings
+function specialHappinessBonus() {
+  let bonus=0;
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    const t=tiles[x][z];
+    if (t.type==='park')     bonus+=8;   // parks boost neighbours
+    if (t.type==='hospital') bonus+=15;  // hospital boosts whole city
+  }
+  return Math.min(30, bonus); // cap so one hospital doesn't dominate
+}
+
+// School growth bonus: res adjacent to school grows 1.5× faster
+function schoolGrowthBonus(x,z) {
+  if (tiles[x][z].type!=='res') return 1;
+  const adj=neighbours(x,z).some(nb=>tiles[nb.x][nb.z].type==='school');
+  return adj ? 1.5 : 1;
+}
+
+// ═══════════════════════════════════════════════════════
+//  WORLD MAP SYSTEM
+//  Clean separation from city sim. No shared mutable state.
+//  world.regions["x_z"] = { owner, cityData, name }
+// ═══════════════════════════════════════════════════════
+const WORLD_SIZE = 10;  // 10×10 grid of regions
+const PLAYER_ID  = 'player_1'; // local player identity
+
+const world = {
+  regions: {}  // populated on init
+};
+
+let currentRegionKey = null; // which region the player currently owns / is editing
+
+// ── Init ──────────────────────────────────────────────
+function initWorldMap() {
+  // Restore saved world from localStorage if it exists
+  const saved = localStorage.getItem('pixel_polis_world');
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      Object.assign(world.regions, parsed.regions || {});
+    } catch(e) {}
+  }
+  renderWorldGrid();
+}
+
+// ── Render grid ───────────────────────────────────────
+function renderWorldGrid() {
+  const grid = document.getElementById('world-grid');
+  grid.innerHTML = '';
+  for (let z=0; z<WORLD_SIZE; z++) {
+    for (let x=0; x<WORLD_SIZE; x++) {
+      const key = `${x}_${z}`;
+      const region  = world.regions[key];
+      const onChain = tileOwners[key];
+      const el = document.createElement('div');
+      el.className = 'wt';
+      el.dataset.key = key;
+      el.style.position = 'relative';
+
+      const isMyWallet = onChain && walletAddress &&
+        onChain.owner?.toLowerCase() === walletAddress?.toLowerCase();
+      const isMyAccount = region && region.owner === (playerUsername || PLAYER_ID);
+
+      if (onChain && isMyWallet) {
+        // My on-chain tile
+        el.classList.add('mine','wt-owned-me');
+        const pop = region?.cityData?.population || onChain.pop || 0;
+        const listLabel = onChain.forSale
+          ? `<div class="wt-price">Listed: ${ethers.formatEther(onChain.price)} ETH</div>` : '';
+        if (region?.thumb) {
+          el.style.backgroundImage=`url(${region.thumb})`;
+          el.style.backgroundSize='cover'; el.style.backgroundPosition='center';
+          el.style.overflow='hidden';
+          el.innerHTML=`<div class="wt-thumb-label">${region.name||'My City'} · ${pop}${listLabel}</div>`;
+        } else {
+          el.innerHTML=`<div class="wt-icon">🏙️</div><div class="wt-label">${region?.name||'My Tile'}<br>👥${pop}</div>${listLabel}`;
+        }
+        el.onclick=()=>{ if(isMyAccount) enterCity(x,z); else { claimRegion(x,z); enterCity(x,z); } };
+        el.oncontextmenu=(e)=>{ e.preventDefault();
+          if(onChain.forSale) delistTile(x,z); else listTileForSale(x,z); };
+
+      } else if (onChain && !isMyWallet) {
+        // Someone else's on-chain tile
+        el.classList.add('owned');
+        if (onChain.forSale) el.classList.add('wt-forsale');
+        const priceLabel = onChain.forSale
+          ? `<div class="wt-price">🏷️ ${ethers.formatEther(onChain.price)} ETH</div>` : '';
+        const raidBtn = net.connected
+          ? `<button class="wt-raid" onclick="event.stopPropagation();launchRaid('${region?.owner||''}','${(region?.name||'').replace(/'/g,"\'")}')">⚔️</button>` : '';
+        el.innerHTML=`<div class="wt-icon">${onChain.forSale?'🏷️':'🏛️'}</div>`+
+          `<div class="wt-label">${shortAddr(onChain.owner)}<br>👥${onChain.pop||0}</div>`+
+          `${priceLabel}${raidBtn}`;
+        el.onclick=()=>{ if(onChain.forSale) buyTile(x,z); else if(region) viewForeignCity(x,z); };
+
+      } else if (!onChain && isContractDeployed() && web3Enabled) {
+        // Empty — mintable on-chain
+        el.innerHTML=`<div class="wt-icon">🌿</div><div class="wt-label">[${x},${z}]<br>0.01 ETH</div>`;
+        el.onclick=()=>mintTile(x,z);
+
+      } else if (region) {
+        // Local game ownership (no contract)
+        if (isMyAccount) {
+          el.classList.add('mine');
+          const pop=region.cityData?.population||0, m=region.cityData?.money||0;
+          if (region.thumb) {
+            el.style.backgroundImage=`url(${region.thumb})`;
+            el.style.backgroundSize='cover'; el.style.backgroundPosition='center';
+            el.style.overflow='hidden';
+            el.innerHTML=`<div class="wt-thumb-label">${region.name} · ${pop}</div>`;
+          } else {
+            el.innerHTML=`<div class="wt-icon">🏙️</div><div class="wt-label">${region.name}<br>👥${pop} 💰$${m}</div>`;
+          }
+          el.onclick=()=>enterCity(x,z);
+        } else {
+          el.classList.add('owned');
+          const pop=region.cityData?.population||0;
+          const raidBtn=net.connected
+            ?`<button class="wt-raid" onclick="event.stopPropagation();launchRaid('${region.owner}','${region.name.replace(/'/g,"\'")}')">⚔️</button>`:'';
+          el.innerHTML=`<div class="wt-icon">🏛️</div><div class="wt-label">${region.name}<br>${region.owner}<br>👥${pop}</div>${raidBtn}`;
+          el.onclick=()=>viewForeignCity(x,z);
+        }
+
+      } else {
+        // Empty — free claim
+        el.innerHTML=`<div class="wt-icon">🌿</div><div class="wt-label">Empty<br>[${x},${z}]</div>`;
+        el.onclick=()=>claimRegion(x,z);
+      }
+      grid.appendChild(el);
+    }
+  }
+}
+// ── Claim empty region ────────────────────────────────
+function claimRegion(x, z) {
+  const key = `${x}_${z}`;
+  if (world.regions[key]) return;
+  const owner = playerUsername || PLAYER_ID;
+  const cityNum = Object.keys(world.regions).length + 1;
+  const name = `${owner}'s City #${cityNum}`;
+  world.regions[key] = {
+    owner, name,
+    cityData: { tiles:[], money:200, population:0, dayTime:0.3, comStore:{}, indStore:{} }
+  };
+  saveWorldState();
+  // Notify server so other players see the claim
+  net.send({ type:'claimRegion', key, name });
+  renderWorldGrid();
+  enterCity(x, z);
+}
+
+// ── Enter city ────────────────────────────────────────
+function enterCity(x, z) {
+  const key = `${x}_${z}`;
+  const region = world.regions[key];
+  if (!region) return;
+
+  currentRegionKey = key;
+  visitMode = false;
+
+  if (region.cityData && region.cityData.tiles && region.cityData.tiles.length > 0) {
+    loadCityFromData(region.cityData);
+  } else {
+    resetCitySimulation();
+  }
+
+  document.getElementById('world-map-ui').classList.remove('active');
+  document.getElementById('visit-banner').style.display = 'none';
+  document.querySelector('.city-name').textContent = `■ ${region.name}`;
+}
+
+// ── Visit a foreign city (read-only) ─────────────────
+let visitMode = false;
+let visitingRegionKey = null;
+
+function viewForeignCity(x, z) {
+  const key = `${x}_${z}`;
+  const region = world.regions[key];
+  if (!region) return;
+
+  // Save own city first
+  captureThumb();
+  if (currentRegionKey) saveCityToRegion();
+
+  visitMode = true;
+  visitingRegionKey = key;
+
+  // Load foreign city visually (no economy, no saving)
+  if (region.cityData && region.cityData.tiles && region.cityData.tiles.length > 0) {
+    loadCityFromData(region.cityData);
+  } else {
+    resetCitySimulation();
+  }
+
+  document.getElementById('world-map-ui').classList.remove('active');
+
+  // Show visiting banner
+  const banner = document.getElementById('visit-banner');
+  if (banner) {
+    banner.style.display = 'flex';
+    document.getElementById('visit-banner-name').textContent =
+      `👀 Visiting: ${region.name} (${region.owner}) — Read Only`;
+  }
+
+  // Force View mode so clicks only inspect
+  setMode('view');
+  document.querySelector('.city-name').textContent = `👀 ${region.name}`;
+}
+
+function returnHome() {
+  visitMode = false;
+  visitingRegionKey = null;
+  document.getElementById('visit-banner').style.display = 'none';
+
+  // Reload own city
+  if (currentRegionKey) {
+    const region = world.regions[currentRegionKey];
+    if (region) {
+      if (region.cityData && region.cityData.tiles && region.cityData.tiles.length > 0) {
+        loadCityFromData(region.cityData);
+      } else {
+        resetCitySimulation();
+      }
+      document.querySelector('.city-name').textContent = `■ ${region.name}`;
+      return;
+    }
+  }
+  // No own city — go to world map
+  openWorldMap();
+}
+
+// ── Open / close world map ────────────────────────────
+function openWorldMap() {
+  captureThumb();
+  // Only save if we're in our own city, not visiting
+  if (!visitMode && currentRegionKey) saveCityToRegion();
+  visitMode = false;
+  visitingRegionKey = null;
+  document.getElementById('visit-banner').style.display = 'none';
+  renderWorldGrid();
+  document.getElementById('world-map-ui').classList.add('active');
+}
+
+function exitWorldMap() {
+  document.getElementById('world-map-ui').classList.remove('active');
+}
+
+// ── Save current city state into its world region ────
+function saveCityToRegion() {
+  if (visitMode) return;
+  if (!currentRegionKey) return;
+  const region = world.regions[currentRegionKey];
+  if (!region) return;
+
+  const tileList = [];
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    const t = tiles[x][z];
+    if (t.type !== 'empty') tileList.push({x, z, type:t.type, level:t.level||1});
+  }
+  region.cityData = {
+    tiles:    tileList,
+    money:    money,
+    population: population,
+    dayTime:  dayTime,
+    comStore: JSON.parse(JSON.stringify(comStore)),
+    indStore: JSON.parse(JSON.stringify(indStore)),
+  };
+  saveWorldState();
+  // Push to server so other players can visit the updated city
+  net.send({ type:'updateRegion', key: currentRegionKey, region: {
+    name:     region.name,
+    cityData: region.cityData,
+  }});
+}
+
+// ── Persist world to localStorage ────────────────────
+function saveWorldState() {
+  localStorage.setItem('pixel_polis_world', JSON.stringify({ regions: world.regions }));
+}
+
+// ── Wipe all live city visuals cleanly ───────────────
+function clearCityVisuals() {
+  // Remove all building meshes
+  for (const k in buildingMeshes) {
+    buildingMeshes[k].forEach(m=>scene.remove(m));
+    delete buildingMeshes[k];
+  }
+  // Remove sidewalk strips
+  for (const k in sidewalkMeshes) {
+    sidewalkMeshes[k].forEach(m=>scene.remove(m));
+    delete sidewalkMeshes[k];
+  }
+  // Remove building night lights
+  for (const k in buildingLights) {
+    scene.remove(buildingLights[k]);
+    delete buildingLights[k];
+  }
+  // Remove power overlays
+  for (const k in powerOverlays) {
+    scene.remove(powerOverlays[k]);
+    delete powerOverlays[k];
+  }
+  // Remove citizens
+  citizens.forEach(c=>scene.remove(c.mesh));
+  citizens.length = 0;
+  // Remove trucks
+  trucks.forEach(t=>scene.remove(t.mesh));
+  trucks.length = 0;
+  // Remove cars
+  cars.forEach(c=>scene.remove(c.mesh));
+  cars.length = 0;
+  // Remove buses
+  busRoutes.forEach(r=>scene.remove(r.mesh));
+  busRoutes.length = 0;
+  busPickingStop = null;
+  // Remove fires
+  for (const k in fires) { scene.remove(fires[k].mesh); delete fires[k]; }
+  // Remove trees
+  clearAllTrees();
+  // Remove terrain/mountains
+  clearTerrain();
+  // Remove river meshes (river layout stays — it's per-city)
+  for (const k in riverMeshes) { scene.remove(riverMeshes[k]); delete riverMeshes[k]; }
+  riverTiles.clear();
+  // Reset all tile meshes to empty green
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    tiles[x][z] = {type:'empty', level:0};
+    tileMeshes[x][z].material.color.setHex(TILE_COLORS.empty);
+  }
+  // Clear road traffic counts
+  for (const k in roadTraffic) delete roadTraffic[k];
+  trafficDecayCounter = 0;
+  // Clear data stores
+  for (const k in comStore) delete comStore[k];
+  for (const k in indStore) delete indStore[k];
+  for (const k in growthTimers) delete growthTimers[k];
+  powerPlants.length = 0;
+  poweredTiles.clear();
+  population = 0;
+}
+
+// ── Place one tile with NO side effects ───────────────
+// No money cost, no net.send, no adjacency blocking.
+function replayCityTile(e) {
+  const {x, z, type, level} = e;
+  if (!inBounds(x,z) || tiles[x][z].type !== 'empty') return;
+  if (type === 'road') {
+    tiles[x][z] = {type:'road', level:0};
+    tileMeshes[x][z].material.color.setHex(TILE_COLORS.road);
+    refreshSidewalk(x,z);
+    neighbours(x,z).forEach(nb=>refreshSidewalk(nb.x,nb.z));
+  } else if (type === 'res') {
+    tiles[x][z] = {type:'res', level:level||1};
+    tileMeshes[x][z].material.color.setHex(TILE_COLORS.res);
+    _resMesh(x,z,level||1);
+    population += POP_PER_LEVEL[(level||1)-1];
+  } else if (type === 'com') {
+    tiles[x][z] = {type:'com', level:level||1};
+    tileMeshes[x][z].material.color.setHex(TILE_COLORS.com);
+    _comMesh(x,z,level||1);
+    ensureComStore(x,z);
+  } else if (type === 'ind') {
+    tiles[x][z] = {type:'ind', level:level||1};
+    tileMeshes[x][z].material.color.setHex(TILE_COLORS.ind);
+    _indMesh(x,z,level||1);
+    ensureIndStore(x,z);
+    const ist = getIndStore(x,z);
+    if (ist) ist.capacity = IND_CAPACITY + (level-1)*30;
+  } else if (type === 'power') {
+    tiles[x][z] = {type:'power', level:0};
+    tileMeshes[x][z].material.color.setHex(TILE_COLORS.power);
+    clearBuilding(x,z);
+    const base=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.7,0.8),new THREE.MeshLambertMaterial({color:0xaa9900}));
+    base.position.set(x,0.41,z); base.castShadow=true;
+    const chimney=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.14,0.9,8),new THREE.MeshLambertMaterial({color:0x777766}));
+    chimney.position.set(x,1.16,z);
+    const glow=new THREE.Mesh(new THREE.SphereGeometry(0.15,8,8),new THREE.MeshLambertMaterial({color:0xffee44,emissive:0xffaa00,emissiveIntensity:0.6}));
+    glow.position.set(x,1.65,z);
+    scene.add(base); scene.add(chimney); scene.add(glow);
+    buildingMeshes[`${x}_${z}`]=[base,chimney,glow];
+    powerPlants.push({x,z});
+  } else if (['park','school','hospital'].includes(type)) {
+    tiles[x][z] = {type, level:1};
+    tileMeshes[x][z].material.color.setHex(SPECIAL_COLORS[type]);
+    _specialMesh(x,z,type);
+  } else if (type === 'bridge') {
+    // Replay bridge directly — bypass isRiverTile() check since river
+    // tiles are regenerated AFTER replayCityTile runs.
+    // Mark the tile then build the mesh directly.
+    tiles[x][z] = {type:'bridge', level:0};
+    const key = `${x}_${z}`;
+    // Detect orientation from saved neighbours (roads replayed before bridges)
+    const hasRoadX = (inBounds(x+1,z)&&(tiles[x+1][z].type==='road'||tiles[x+1][z].type==='bridge')) ||
+                     (inBounds(x-1,z)&&(tiles[x-1][z].type==='road'||tiles[x-1][z].type==='bridge'));
+    const alongX = hasRoadX;
+    // Build mesh inline (same as buildBridge but no guard, no money, no net.send)
+    const group = new THREE.Group();
+    const stoneMat = new THREE.MeshLambertMaterial({color:0xbbaa88});
+    const darkMat  = new THREE.MeshLambertMaterial({color:0x887766});
+    const railMat  = new THREE.MeshLambertMaterial({color:0x998855});
+    const roadMat  = new THREE.MeshLambertMaterial({color:0x555566});
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(0.88,0.07,0.88), roadMat);
+    deck.position.y = 0.22; deck.castShadow = true;
+    group.add(deck);
+    for (const side of [-1,1]) {
+      const archW = alongX ? 0.12 : 0.88, archD = alongX ? 0.88 : 0.12;
+      const pillar = new THREE.Mesh(new THREE.BoxGeometry(archW,0.30,archD), stoneMat);
+      pillar.position.set(alongX?0:side*0.40, 0.09, alongX?side*0.40:0);
+      const crown = new THREE.Mesh(new THREE.CylinderGeometry(alongX?0.44:0.06,alongX?0.44:0.06,alongX?0.12:0.88,8), darkMat);
+      crown.rotation.z = alongX ? Math.PI/2 : 0;
+      crown.position.set(alongX?0:side*0.40, 0.18, alongX?side*0.40:0);
+      group.add(pillar); group.add(crown);
+      const barGeo = new THREE.BoxGeometry(alongX?0.88:0.04, 0.04, alongX?0.04:0.88);
+      const bar = new THREE.Mesh(barGeo, railMat);
+      bar.position.set(alongX?0:side*0.43, 0.40, alongX?side*0.43:0);
+      group.add(bar);
+      for (const pos of [-0.32,-0.10,0.10,0.32]) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.04,0.18,0.04), railMat);
+        post.position.set(alongX?pos:side*0.43, 0.31, alongX?side*0.43:pos);
+        group.add(post);
+      }
+    }
+    group.position.set(x, 0, z);
+    scene.add(group);
+    bridgeMeshes[key] = group;
+    buildingMeshes[key] = [group];
+  }
+}
+
+// ── Load city from a data object into the live sim ───
+function loadCityFromData(d) {
+  clearCityVisuals();
+
+  money   = d.money   ?? 200;
+  dayTime = d.dayTime ?? 0.3;
+
+  // Generate terrain + river + trees FIRST so their colours are the base layer.
+  // Tile replay runs after and overwrites colours with road/res/com etc.
+  spawnCityNature();
+
+  // Restore store snapshots
+  if (d.comStore) Object.assign(comStore, JSON.parse(JSON.stringify(d.comStore)));
+  if (d.indStore) Object.assign(indStore, JSON.parse(JSON.stringify(d.indStore)));
+
+  // Replay tiles — roads first, bridges last
+  const sorted = (d.tiles||[]).slice().sort((a,b)=>{
+    if (a.type==='road' && b.type!=='road') return -1;
+    if (b.type==='road' && a.type!=='road') return 1;
+    if (a.type==='bridge') return 1;
+    if (b.type==='bridge') return -1;
+    return 0;
+  });
+  sorted.forEach(e => replayCityTile(e));
+
+  // Rebuild power coverage after all plants are placed
+  rebuildPowerMap();
+  refreshAllBuildings();
+
+  // Trees last — after tile replay so they don't appear on roads/buildings
+  spawnCityTrees();
+
+  updateUI();
+}
+
+// ── Reset city to blank slate ─────────────────────────
+function resetCitySimulation() {
+  clearCityVisuals();
+  money = 200; dayTime = 0.3;
+  spawnCityNature();
+  spawnCityTrees();
+  updateUI();
+}
+
+// ═══════════════════════════════════════════════════════
+//  CITY THUMBNAIL  — canvas snapshot stored per region
+// ═══════════════════════════════════════════════════════
+function captureThumb() {
+  if (!currentRegionKey) return;
+  try {
+    const dataURL = renderer.domElement.toDataURL('image/jpeg', 0.5);
+    const region = world.regions[currentRegionKey];
+    if (region) { region.thumb = dataURL; saveWorldState(); }
+  } catch(e) { console.warn('[thumb] capture failed:', e.message); }
+}
+
+// ═══════════════════════════════════════════════════════
+//  LOGIN SYSTEM
+// ═══════════════════════════════════════════════════════
+let playerUsername = localStorage.getItem('pixel_polis_username') || '';
+
+function submitLogin() {
+  const input = document.getElementById('login-name');
+  const name  = (input?.value||'').trim().slice(0,20);
+  if (!name) { input.style.borderColor='#ff6b6b'; return; }
+  playerUsername = name;
+  localStorage.setItem('pixel_polis_username', name);
+  // Update PLAYER_ID used by world.regions
+  // (can't reassign const — we use playerUsername everywhere instead)
+  document.getElementById('login-modal').style.display = 'none';
+  // Tell server our name
+  net.send({ type:'setName', name });
+  // Update city name display
+  document.querySelector('.city-name').textContent = '■ ' + name + '\'s City';
+  document.getElementById('world-sub').textContent =
+    `Playing as ${name} | Click empty tile to found city | Click your city to enter`;
+}
+
+// Auto-skip login if username already saved
+window.addEventListener('load', ()=>{
+  if (playerUsername) {
+    document.getElementById('login-modal').style.display = 'none';
+    net.send({ type:'setName', name:playerUsername });
+  } else {
+    setTimeout(()=>{ document.getElementById('login-name')?.focus(); }, 100);
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+//  LEADERBOARD
+// ═══════════════════════════════════════════════════════
+function renderLeaderboard(scores) {
+  const el = document.getElementById('leaderboard-list');
+  if (!el) return;
+  if (!scores||!scores.length) { el.innerHTML='<div style="color:#445566;font-size:11px">No players yet</div>'; return; }
+  el.innerHTML = scores.map((s,i)=>`
+    <div class="lb-row">
+      <span class="lb-rank">#${i+1}</span>
+      <span class="lb-name" style="color:${s.color||'#c9d8f0'}">${escHtml(s.name)}</span>
+      <span class="lb-stat">👥${s.pop} 💰$${s.money}</span>
+    </div>`).join('');
+}
+
+// Report own stats to server every 10 seconds
+setInterval(()=>{
+  if (net.connected) net.send({ type:'score', pop:population, money });
+}, 10000);
+
+// ═══════════════════════════════════════════════════════
+//  WORLD CHAT
+// ═══════════════════════════════════════════════════════
+function sendChat() {
+  const input = document.getElementById('chat-input');
+  const text  = (input?.value||'').trim();
+  if (!text) return;
+  net.send({ type:'chat', text });
+  input.value = '';
+  // Show own message immediately (offline fallback)
+  if (!net.connected) appendChatMsg({name:playerUsername||'You',color:'#7eb8ff',text,ts:Date.now()});
+}
+
+function appendChatMsg(msg) {
+  const box = document.getElementById('chat-messages');
+  if (!box) return;
+  const div = document.createElement('div');
+  div.className = 'chat-msg' + (msg.playerId===0?' chat-system':'');
+  const t = new Date(msg.ts||Date.now());
+  const hh = t.getHours().toString().padStart(2,'0');
+  const mm = t.getMinutes().toString().padStart(2,'0');
+  div.innerHTML = `<span style="color:#445566">[${hh}:${mm}]</span> `+
+    (msg.playerId===0
+      ? `<span style="color:#556677">${escHtml(msg.text)}</span>`
+      : `<span class="chat-name" style="color:${msg.color||'#c9d8f0'}">${escHtml(msg.name)}</span>: ${escHtml(msg.text)}`);
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ═══════════════════════════════════════════════════════
+//  RAID SYSTEM
+// ═══════════════════════════════════════════════════════
+const RAID_COST_CLIENT = 200;
+
+function launchRaid(targetPlayerId, targetName) {
+  if (!net.connected) { showToast('Raids require server connection',null,null,'#ff6666'); return; }
+  if (money < RAID_COST_CLIENT) { showToast(`Need $${RAID_COST_CLIENT} to raid`,null,null,'#ff6666'); return; }
+  if (!confirm(`Raid ${targetName}'s city for $${RAID_COST_CLIENT}? This triggers a disaster there.`)) return;
+  money -= RAID_COST_CLIENT; // deduct locally (server will validate)
+  net.send({ type:'raid', targetPlayerId });
+  showToast(`⚔️ Raiding ${targetName}!`,null,null,'#ff6b6b');
+  updateUI();
+}
+
+// Handle incoming raid
+function handleRaided(msg) {
+  showDisasterBanner(`⚔️ ${msg.byName} raided your city! Disaster incoming!`);
+  showToast('🔥 RAID! Emergency!',null,null,'#ff4444');
+  // Trigger a fire disaster
+  const bldTiles=[];
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++)
+    if (['res','com','ind'].includes(tiles[x][z].type)) bldTiles.push({x,z});
+  if (bldTiles.length>0) {
+    const t=bldTiles[Math.floor(Math.random()*bldTiles.length)];
+    startFire(t.x,t.z);
+    // Extra fires for dramatic effect
+    if (bldTiles.length>3) {
+      const t2=bldTiles[Math.floor(Math.random()*bldTiles.length)];
+      setTimeout(()=>startFire(t2.x,t2.z), 1500);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  WEB3 — MetaMask + Pixel_PolisTiles contract
+// ═══════════════════════════════════════════════════════
+
+// ── Contract config ────────────────────────────────────
+// Replace CONTRACT_ADDRESS after deploying Pixel_PolisTiles.sol
+const CONTRACT_ADDRESS = '0xa251E78F350e7c670b1D1c9560A5984E65066c67'; // ← paste deployed address here
+const CHAIN_ID         = 8453;   // Base mainnet (84532 = Base Sepolia testnet)
+const CHAIN_NAME       = 'Base';
+const MINT_PRICE_ETH   = '0.01';
+
+const CONTRACT_ABI = [
+  'function mint(uint8 x, uint8 z) payable',
+  'function buy(uint8 x, uint8 z) payable',
+  'function listForSale(uint8 x, uint8 z, uint256 price)',
+  'function delist(uint8 x, uint8 z)',
+  'function updateCity(uint8 x, uint8 z, string name, uint256 pop)',
+  'function getTileOwner(uint8 x, uint8 z) view returns (address)',
+  'function getTileInfo(uint8 x, uint8 z) view returns (address owner, bool forSale, uint256 price, string name, uint256 pop)',
+  'function getAllOwners() view returns (address[100])',
+  'function listingPrice(uint256) view returns (uint256)',
+  'event TileMinted(uint8 x, uint8 z, address owner, uint256 price)',
+  'event TileSold(uint8 x, uint8 z, address from, address to, uint256 price)',
+];
+
+// ── Wallet state ───────────────────────────────────────
+let walletAddress  = null;
+let web3Provider   = null;
+let web3Signer     = null;
+let tileContract   = null;
+let tileOwners     = {};  // "x_z" -> { owner, forSale, price, name, pop }
+let web3Enabled    = false; // true once contract address is real
+
+function isContractDeployed() {
+  return CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000';
+}
+
+// ── Connect wallet ─────────────────────────────────────
+async function connectWallet() {
+  if (!window.ethereum) {
+    alert('MetaMask not found.\nInstall it at metamask.io then refresh.');
+    return;
+  }
+  try {
+    await window.ethereum.request({ method: 'eth_requestAccounts' });
+    web3Provider = new ethers.BrowserProvider(window.ethereum);
+    web3Signer   = await web3Provider.getSigner();
+    walletAddress = await web3Signer.getAddress();
+
+    // Switch to correct chain
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: '0x' + CHAIN_ID.toString(16) }]
+      });
+    } catch(e) {
+      if (e.code === 4902) {
+        // Chain not added — add Base
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{ chainId: '0x' + CHAIN_ID.toString(16),
+            chainName: 'Base', nativeCurrency: { name:'ETH', symbol:'ETH', decimals:18 },
+            rpcUrls: ['https://mainnet.base.org'],
+            blockExplorerUrls: ['https://basescan.org'] }]
+        });
+      }
+    }
+
+    if (isContractDeployed()) {
+      tileContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, web3Signer);
+      web3Enabled  = true;
+      await loadAllTileOwners();
+    }
+
+    updateWalletUI();
+    renderWorldGrid(); // re-render with ownership data
+    showToast('Wallet connected!', null, null, '#4ddb88');
+
+    // Listen for chain/account changes
+    window.ethereum.on('accountsChanged', accs => {
+      walletAddress = accs[0] || null; updateWalletUI(); renderWorldGrid();
+    });
+  } catch(e) {
+    console.error('[wallet]', e);
+    showToast('Wallet connection failed', null, null, '#ff6666');
+  }
+}
+
+function updateWalletUI() {
+  const addr = document.getElementById('wallet-addr');
+  const btn  = document.getElementById('wallet-btn');
+  if (walletAddress) {
+    addr.textContent = walletAddress.slice(0,6)+'…'+walletAddress.slice(-4);
+    btn.textContent  = '✓ Connected';
+    btn.onclick      = null;
+  }
+}
+
+// ── Load all tile owners from contract ────────────────
+async function loadAllTileOwners() {
+  if (!tileContract) return;
+  try {
+    const owners = await tileContract.getAllOwners();
+    for (let i = 0; i < 100; i++) {
+      const x = Math.floor(i / 10), z = i % 10;
+      const key = `${x}_${z}`;
+      if (owners[i] !== ethers.ZeroAddress) {
+        // Fetch full info for owned tiles
+        const info = await tileContract.getTileInfo(x, z);
+        tileOwners[key] = {
+          owner:   info.owner,
+          forSale: info.forSale,
+          price:   info.price,   // BigInt wei
+          name:    info.name,
+          pop:     Number(info.pop),
+        };
+      } else {
+        delete tileOwners[key];
+      }
+    }
+  } catch(e) {
+    console.warn('[web3] loadAllTileOwners failed:', e.message);
+  }
+}
+
+// ── Mint a tile ────────────────────────────────────────
+async function mintTile(x, z) {
+  if (!web3Enabled) {
+    showToast('Connect wallet first', null, null, '#ff8844'); return;
+  }
+  if (!tileContract) return;
+  const key = `${x}_${z}`;
+  if (tileOwners[key]) { showToast('Tile already owned', null, null, '#ffaa44'); return; }
+
+  try {
+    showToast('Confirm in MetaMask…', null, null, '#ffd060');
+    const tx = await tileContract.mint(x, z, {
+      value: ethers.parseEther(MINT_PRICE_ETH)
+    });
+    showToast('Transaction sent! Waiting…', null, null, '#ffd060');
+    await tx.wait();
+    // Refresh ownership
+    await loadAllTileOwners();
+    renderWorldGrid();
+    showToast(`Tile [${x},${z}] is yours!`, null, null, '#4ddb88');
+    // Auto-claim in game world
+    claimRegion(x, z);
+  } catch(e) {
+    console.error('[web3] mint failed:', e);
+    showToast(e.reason || 'Transaction failed', null, null, '#ff6666');
+  }
+}
+
+// ── Buy a listed tile ──────────────────────────────────
+async function buyTile(x, z) {
+  if (!web3Enabled) { showToast('Connect wallet first', null, null, '#ff8844'); return; }
+  const key = `${x}_${z}`;
+  const info = tileOwners[key];
+  if (!info?.forSale) { showToast('Not for sale', null, null, '#ffaa44'); return; }
+  const priceEth = ethers.formatEther(info.price);
+  if (!confirm(`Buy tile [${x},${z}] for ${priceEth} ETH?`)) return;
+
+  try {
+    showToast('Confirm in MetaMask…', null, null, '#ffd060');
+    const tx = await tileContract.buy(x, z, { value: info.price });
+    showToast('Buying… please wait', null, null, '#ffd060');
+    await tx.wait();
+    await loadAllTileOwners();
+    renderWorldGrid();
+    showToast(`Tile [${x},${z}] purchased!`, null, null, '#4ddb88');
+  } catch(e) {
+    console.error('[web3] buy failed:', e);
+    showToast(e.reason || 'Transaction failed', null, null, '#ff6666');
+  }
+}
+
+// ── List own tile for sale ─────────────────────────────
+async function listTileForSale(x, z) {
+  if (!web3Enabled) return;
+  const key = `${x}_${z}`;
+  const info = tileOwners[key];
+  if (!info || info.owner?.toLowerCase() !== walletAddress?.toLowerCase()) {
+    showToast('Not your tile', null, null, '#ff6666'); return;
+  }
+  const priceStr = prompt(`List tile [${x},${z}] for how much ETH?\n(e.g. 0.05)`);
+  if (!priceStr) return;
+  const priceWei = ethers.parseEther(priceStr.trim());
+
+  try {
+    showToast('Confirm in MetaMask…', null, null, '#ffd060');
+    const tx = await tileContract.listForSale(x, z, priceWei);
+    await tx.wait();
+    await loadAllTileOwners();
+    renderWorldGrid();
+    showToast(`Listed for ${priceStr} ETH!`, null, null, '#4ddb88');
+  } catch(e) {
+    showToast(e.reason || 'Failed', null, null, '#ff6666');
+  }
+}
+
+// ── Delist ────────────────────────────────────────────
+async function delistTile(x, z) {
+  if (!web3Enabled) return;
+  try {
+    const tx = await tileContract.delist(x, z);
+    await tx.wait();
+    await loadAllTileOwners();
+    renderWorldGrid();
+    showToast('Listing cancelled', null, null, '#4ddb88');
+  } catch(e) {
+    showToast(e.reason || 'Failed', null, null, '#ff6666');
+  }
+}
+
+// ── Short address helper ───────────────────────────────
+function shortAddr(addr) {
+  if (!addr || addr === ethers.ZeroAddress) return '';
+  return addr.slice(0,6)+'…'+addr.slice(-4);
+}
+
+initWorldMap();
+
+// ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  5. VISUAL POLISH  (standalone helpers — no wrappers)
+// ═══════════════════════════════════════════════════════
+
+// A) Construction animation
+const constructing=[];
+function animateConstruct(meshes) {
+  meshes.forEach(m=>m.scale.set(0.01,0.01,0.01));
+  constructing.push({meshes,frame:0,total:40});
+}
+function stepConstruct() {
+  for (let i=constructing.length-1;i>=0;i--) {
+    const c=constructing[i]; c.frame++;
+    const ease=1-(1-Math.min(1,c.frame/c.total))**3;
+    c.meshes.forEach(m=>m.scale.set(ease,ease,ease));
+    if (c.frame>=c.total) constructing.splice(i,1);
+  }
+}
+
+// B) Road intersection markings
+const intersectionMarks={};
+const markGeo=new THREE.PlaneGeometry(0.3,0.98);
+const markMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.35,depthWrite:false});
+function updateIntersectionMark(x,z) {
+  const key=`${x}_${z}`;
+  if (tiles[x][z].type!=='road') {
+    if (intersectionMarks[key]) { scene.remove(intersectionMarks[key]); delete intersectionMarks[key]; }
+    return;
+  }
+  const n=neighbours(x,z).filter(nb=>tiles[nb.x][nb.z].type==='road').length;
+  if (n>=3 && !intersectionMarks[key]) {
+    const m=new THREE.Mesh(markGeo,markMat.clone());
+    m.rotation.x=-Math.PI/2; m.position.set(x,0.15,z);
+    scene.add(m); intersectionMarks[key]=m;
+  } else if (n<3 && intersectionMarks[key]) {
+    scene.remove(intersectionMarks[key]); delete intersectionMarks[key];
+  }
+}
+// ═══════════════════════════════════════════════════════
+//  TAX RATE SYSTEM
+// ═══════════════════════════════════════════════════════
+function getTaxRates() {
+  return {
+    res: parseInt(document.getElementById('tax-res')?.value || 10) / 100,
+    com: parseInt(document.getElementById('tax-com')?.value || 10) / 100,
+    ind: parseInt(document.getElementById('tax-ind')?.value || 10) / 100,
+  };
+}
+
+function updateTaxDisplay() {
+  const r = document.getElementById('tax-res').value;
+  const c = document.getElementById('tax-com').value;
+  const i = document.getElementById('tax-ind').value;
+  document.getElementById('tax-res-val').textContent = r + '%';
+  document.getElementById('tax-com-val').textContent = c + '%';
+  document.getElementById('tax-ind-val').textContent = i + '%';
+  // High tax hurts happiness
+  const avgTax = (parseInt(r) + parseInt(c) + parseInt(i)) / 3;
+  const taxPenalty = Math.max(0, avgTax - 10) * 0.8;
+  cityHappiness = Math.max(0, cityHappiness - taxPenalty * 0.1);
+}
+
+function taxMultiplier() {
+  const rates = getTaxRates();
+  const avg = (rates.res + rates.com + rates.ind) / 3;
+  // 0%→0.5×  10%→1.0×  20%→1.5×  30%→2.0× (capped)
+  return Math.min(2.0, 0.5 + avg * 5);
+}
+
+// ═══════════════════════════════════════════════════════
+//  CITY RENAME
+// ═══════════════════════════════════════════════════════
+function startRenameCity() {
+  const display = document.getElementById('city-name-display');
+  const input   = document.getElementById('city-name-input');
+  if (!display || !input) return;
+  const current = display.textContent.replace('■ ', '').trim();
+  input.value = current;
+  display.style.display = 'none';
+  input.style.display   = 'block';
+  input.focus(); input.select();
+}
+
+function finishRenameCity() {
+  const display = document.getElementById('city-name-display');
+  const input   = document.getElementById('city-name-input');
+  if (!display || !input) return;
+  const newName = input.value.trim() || 'Unnamed City';
+  display.textContent = '■ ' + newName;
+  display.style.display = 'block';
+  input.style.display   = 'none';
+  // Save to world region
+  if (currentRegionKey && world.regions[currentRegionKey]) {
+    world.regions[currentRegionKey].name = newName;
+    saveWorldState();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  RIVER SEEDING — unique river per region
+// ═══════════════════════════════════════════════════════
+// Override generateRiver to accept an optional seed
+const _origGenerateRiver = generateRiver;
+function generateRiverSeeded(seed) {
+  // Simple seeded RNG (mulberry32)
+  let s = seed || 42;
+  const rng = () => { s|=0; s=s+0x6D2B79F5|0; let t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; };
+  riverTiles.clear();
+  let z = 5 + Math.floor(rng() * 8);
+  for (let x=0; x<SIZE; x++) {
+    riverTiles.add(`${x}_${z}`);
+    if (z > 0)      riverTiles.add(`${x}_${z-1}`);
+    if (z < SIZE-1) riverTiles.add(`${x}_${z+1}`);
+    const drift = rng();
+    if (drift < 0.3 && z > 1)         z--;
+    else if (drift > 0.7 && z < SIZE-2) z++;
+  }
+}
+
+function getRegionSeed() {
+  if (!currentRegionKey) return 42;
+  // Convert "x_z" key into a stable integer seed
+  const [rx, rz] = currentRegionKey.split('_').map(Number);
+  return rx * 1000 + rz * 37 + 7;
+}
+
+// Patch loadCityFromData and resetCitySimulation to use seeded river
+function spawnCityNature() {
+  const seed = getRegionSeed();
+  generateTerrain(seed);
+  generateRiverSeeded(seed);
+  buildRiverMeshes();
+  // Trees are spawned separately after tile replay (spawnAllTrees call below)
+}
+
+function spawnCityTrees() {
+  spawnAllTrees();
+}
+
+// ═══════════════════════════════════════════════════════
+//  FIRE STATION — reduces fire spread, adds emergency response
+// ═══════════════════════════════════════════════════════
+const FIRESTATION_RADIUS = 4;
+const FIRESTATION_COST   = 20;
+Object.assign(SPECIAL_COLORS, { firestation:0xdd2222 });
+Object.assign(SPECIAL_COST,   { firestation:FIRESTATION_COST });
+
+function _firestationMesh(x,z) {
+  clearBuilding(x,z);
+  const objs=[];
+  // Red body
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.82,0.85,0.82),new THREE.MeshLambertMaterial({color:0xcc2222}));
+  body.position.set(x,0.48,z); body.castShadow=true;
+  // White garage door strip
+  const door=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.3,0.04),new THREE.MeshLambertMaterial({color:0xffffff}));
+  door.position.set(x,0.25,z+0.42);
+  // Small white cross on roof
+  const ch=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.05,0.1),new THREE.MeshLambertMaterial({color:0xffffff}));
+  ch.position.set(x,0.93,z);
+  const cv=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.05,0.4),new THREE.MeshLambertMaterial({color:0xffffff}));
+  cv.position.set(x,0.93,z);
+  // Siren light
+  const siren=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.1,8),new THREE.MeshLambertMaterial({color:0xff4400,emissive:0xff2200,emissiveIntensity:0.8}));
+  siren.position.set(x,1.0,z);
+  scene.add(body); scene.add(door); scene.add(ch); scene.add(cv); scene.add(siren);
+  objs.push(body,door,ch,cv,siren);
+  buildingMeshes[`${x}_${z}`]=objs;
+  addBuildingLight(x,z,0xff4400);
+  animateConstruct(objs);
+}
+
+// _specialMesh handles all special zone meshes including firestation
+function _specialMesh(x,z,type) {
+  if (type==='firestation') { _firestationMesh(x,z); return; }
+  clearBuilding(x,z);
+  const objs=[];
+  if (type==='park') {
+    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.1,0.5,6),new THREE.MeshLambertMaterial({color:0x885522}));
+    trunk.position.set(x,0.31,z); trunk.castShadow=true;
+    const canopy=new THREE.Mesh(new THREE.SphereGeometry(0.42,7,7),new THREE.MeshLambertMaterial({color:0x33aa55}));
+    canopy.position.set(x,0.82,z);
+    scene.add(trunk); scene.add(canopy);
+    objs.push(trunk,canopy);
+  } else if (type==='school') {
+    const body=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.9,0.8),new THREE.MeshLambertMaterial({color:0x4488dd}));
+    body.position.set(x,0.51,z); body.castShadow=true;
+    const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.7,4),new THREE.MeshLambertMaterial({color:0xdddddd}));
+    pole.position.set(x+0.3,1.31,z+0.3);
+    const flag=new THREE.Mesh(new THREE.BoxGeometry(0.25,0.16,0.04),new THREE.MeshLambertMaterial({color:0xff4444}));
+    flag.position.set(x+0.43,1.58,z+0.3);
+    scene.add(body); scene.add(pole); scene.add(flag);
+    objs.push(body,pole,flag);
+  } else if (type==='hospital') {
+    const body=new THREE.Mesh(new THREE.BoxGeometry(0.85,1.1,0.85),new THREE.MeshLambertMaterial({color:0xeeeeff}));
+    body.position.set(x,0.61,z); body.castShadow=true;
+    const crossH=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.06,0.12),new THREE.MeshLambertMaterial({color:0xff2222}));
+    crossH.position.set(x,1.19,z);
+    const crossV=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.06,0.5),new THREE.MeshLambertMaterial({color:0xff2222}));
+    crossV.position.set(x,1.19,z);
+    scene.add(body); scene.add(crossH); scene.add(crossV);
+    objs.push(body,crossH,crossV);
+  }
+  buildingMeshes[`${x}_${z}`]=objs;
+  addBuildingLight(x,z, type==='hospital'?0xff8888 : type==='school'?0x8888ff : 0x88ff88);
+  animateConstruct(objs);
+}
+
+function getFirestationCoverage(fx,fz) {
+  let count=0;
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    if (Math.abs(x-fx)+Math.abs(z-fz)<=FIRESTATION_RADIUS) count++;
+  }
+  return count;
+}
+
+function isInFirestationRange(tx,tz) {
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    if (tiles[x][z].type!=='firestation') continue;
+    if (Math.abs(tx-x)+Math.abs(tz-z)<=FIRESTATION_RADIUS) return true;
+  }
+  return false;
+}
+
+// ═══════════════════════════════════════════════════════
+//  ROAD TRAFFIC DENSITY
+// ═══════════════════════════════════════════════════════
+const roadTraffic = {}; // "x_z" -> trip count (decays over time)
+
+function recordRoadUse(x,z) {
+  // Traffic counting kept for inspect panel display only — no colour change
+  const key=`${x}_${z}`;
+  roadTraffic[key]=(roadTraffic[key]||0)+1;
+}
+
+function decayTraffic() {
+  for (const key in roadTraffic) {
+    roadTraffic[key]=Math.max(0,roadTraffic[key]-1);
+    if (roadTraffic[key]===0) delete roadTraffic[key];
+  }
+}
+
+function updateRoadColour(x,z) {
+  // No-op — roads keep their original built colour permanently
+}
+
+let trafficDecayCounter=0;
+function tickTrafficDecay() {
+  trafficDecayCounter++;
+  if (trafficDecayCounter>=3) { decayTraffic(); trafficDecayCounter=0; }
+}
+
+// ═══════════════════════════════════════════════════════
+//  1. CITY BUDGET PANEL
+// ═══════════════════════════════════════════════════════
+const MAINTENANCE = { road:0.05, res:0.2, com:0.3, ind:0.25, power:0.5,
+                      park:0.1, school:0.3, hospital:0.5, firestation:0.4, bridge:0.1 };
+const LOAN_AMOUNT  = 500;
+const LOAN_RATE    = 10;   // $ per tick repayment
+const LOAN_MAX     = 3;
+let   loans        = 0;    // outstanding loan count
+let   loanDebt     = 0;    // total remaining debt
+
+function calcMaintenance() {
+  let roadExp=0, bldExp=0;
+  for (let x=0;x<SIZE;x++) for (let z=0;z<SIZE;z++) {
+    const t=tiles[x][z];
+    if (t.type==='empty') continue;
+    const cost=(MAINTENANCE[t.type]||0)*(t.level||1);
+    if (t.type==='road'||t.type==='bridge') roadExp+=cost;
+    else bldExp+=cost;
+  }
+  return { roadExp:Math.ceil(roadExp), bldExp:Math.ceil(bldExp) };
+}
+
+function tickMaintenance() {
+  const {roadExp,bldExp}=calcMaintenance();
+  const loanRep=Math.min(loanDebt, loans*LOAN_RATE);
+  const total=roadExp+bldExp+loanRep;
+  money-=total;
+  loanDebt=Math.max(0,loanDebt-loanRep);
+  if (loanDebt===0) loans=0;
+  if (money<-1000) showDisasterBanner('💸 Severe Debt! Take a loan or raise taxes.');
+}
+
+function takeLoan() {
+  if (loans>=LOAN_MAX) { showToast('Max loans reached!',null,null,'#ff6666'); return; }
+  money+=LOAN_AMOUNT; loans++; loanDebt+=LOAN_AMOUNT;
+  updateUI(); openBudget();
+  showToast('+$'+LOAN_AMOUNT+' loan!',null,null,'#ffd060');
+}
+
+function openBudget() {
+  const {roadExp,bldExp}=calcMaintenance();
+  const loanRep=loans*LOAN_RATE;
+  const gross=calcIncome();
+  const net=gross-roadExp-bldExp-loanRep;
+  const el=id=>document.getElementById(id);
+  el('b-res-inc').textContent='$'+gross;
+  el('b-tax-mult').textContent=taxMultiplier().toFixed(2)+'×';
+  el('b-road-exp').textContent='-$'+roadExp;
+  el('b-bld-exp').textContent='-$'+bldExp;
+  el('b-loan-rep').textContent='-$'+loanRep;
+  el('b-net').textContent=(net>=0?'+':'')+'$'+net;
+  el('b-net').className='bv '+(net>=0?'green':'red');
+  el('b-debt').textContent='$'+loanDebt;
+  el('b-loans').textContent=loans;
+  el('loan-btn').disabled=loans>=LOAN_MAX;
+  document.getElementById('budget-modal').classList.add('active');
+}
+function closeBudget() { document.getElementById('budget-modal').classList.remove('active'); }
+
+// ═══════════════════════════════════════════════════════
+//  2. CITY STATISTICS — ring buffer + canvas graph
+// ═══════════════════════════════════════════════════════
+const STATS_LEN = 40;
+const statsHistory = {
+  population: Array(STATS_LEN).fill(0),
+  income:     Array(STATS_LEN).fill(0),
+  happiness:  Array(STATS_LEN).fill(0),
+};
+
+function recordStats() {
+  statsHistory.population.push(population);   statsHistory.population.shift();
+  statsHistory.income.push(calcIncome());      statsHistory.income.shift();
+  statsHistory.happiness.push(Math.round(cityHappiness)); statsHistory.happiness.shift();
+}
+
+function drawStatsGraph() {
+  const canvas=document.getElementById('stats-canvas');
+  if (!canvas) return;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fillRect(0,0,W,H);
+
+  // Grid lines
+  ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
+  for (let i=1;i<4;i++) { ctx.beginPath(); ctx.moveTo(0,H*i/4); ctx.lineTo(W,H*i/4); ctx.stroke(); }
+
+  const series=[
+    {data:statsHistory.population, color:'#4ddb88', max:Math.max(1,...statsHistory.population)},
+    {data:statsHistory.income,     color:'#74c0fc', max:Math.max(1,...statsHistory.income)},
+    {data:statsHistory.happiness,  color:'#ffd060', max:100},
+  ];
+  series.forEach(({data,color,max})=>{
+    ctx.strokeStyle=color; ctx.lineWidth=2; ctx.beginPath();
+    data.forEach((v,i)=>{
+      const px=i*(W/(STATS_LEN-1));
+      const py=H-(v/max)*(H-8)-4;
+      i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+    });
+    ctx.stroke();
+  });
+
+  // Labels
+  ctx.fillStyle='#445566'; ctx.font='9px Courier New';
+  ctx.fillText('0',3,H-3); ctx.fillText('40 ticks',W-52,H-3);
+}
+
+function openStats() {
+  const avg=arr=>arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length):0;
+  const peak=arr=>Math.max(...arr);
+  document.getElementById('stats-summary').innerHTML=
+    `<b style="color:#c9d8f0">Population</b> — avg: ${avg(statsHistory.population)} peak: ${peak(statsHistory.population)}<br>`+
+    `<b style="color:#c9d8f0">Income/tick</b> — avg: $${avg(statsHistory.income)} peak: $${peak(statsHistory.income)}<br>`+
+    `<b style="color:#c9d8f0">Happiness</b> — avg: ${avg(statsHistory.happiness)} peak: ${peak(statsHistory.happiness)}`;
+  document.getElementById('stats-modal').classList.add('active');
+  setTimeout(drawStatsGraph,0); // wait for canvas to be visible
+}
+function closeStats() { document.getElementById('stats-modal').classList.remove('active'); }
+
+// ═══════════════════════════════════════════════════════
+//  3. BUS ROUTES
+// ═══════════════════════════════════════════════════════
+const MAX_BUS_ROUTES = 5;
+const busRoutes = []; // {stopA:{x,z}, stopB:{x,z}, path:[], bus:{mesh,pathIdx,stepT}}
+let busPickingStop = null; // {x,z} of first stop selected
+
+const busMat  = new THREE.MeshLambertMaterial({color:0xffcc00});
+const busGeo  = new THREE.BoxGeometry(0.38,0.22,0.52);
+
+function makeBusMesh() {
+  const group=new THREE.Group();
+  const body=new THREE.Mesh(busGeo, busMat);
+  body.position.y=0.16;
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(0.36,0.06,0.50),new THREE.MeshLambertMaterial({color:0xffaa00}));
+  roof.position.y=0.30;
+  const wMat=new THREE.MeshLambertMaterial({color:0x111111});
+  [[0.18,0.12,0.2],[0.18,0.12,-0.2],[-0.18,0.12,0.2],[-0.18,0.12,-0.2]].forEach(([wx,wy,wz])=>{
+    const w=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.07,8),wMat);
+    w.rotation.z=Math.PI/2; w.position.set(wx,wy,wz); group.add(w);
+  });
+  group.add(body); group.add(roof);
+  return group;
+}
+
+function addBusRoute(ax,az,bx,bz) {
+  if (busRoutes.length>=MAX_BUS_ROUTES) { showToast('Max bus routes!',null,null,'#ff8844'); return; }
+  const path=astar(ax,az,bx,bz);
+  if (!path||path.length<2) { showToast('No road path between stops!',ax,az,'#ff6666'); return; }
+  const mesh=makeBusMesh();
+  mesh.position.set(ax,0.14,az);
+  scene.add(mesh);
+  busRoutes.push({
+    stopA:{x:ax,z:az}, stopB:{x:bx,z:bz},
+    path, pathIdx:0, stepT:0, forward:true,
+    mesh, speed:0.022
+  });
+  // Happiness boost per route
+  cityHappiness=Math.min(100,cityHappiness+5);
+  updateBusPanel();
+  showToast('🚌 Bus route added!',null,null,'#ffcc00');
+}
+
+function removeBusRoute(i) {
+  if (busRoutes[i]) { scene.remove(busRoutes[i].mesh); busRoutes.splice(i,1); }
+  cityHappiness=Math.max(0,cityHappiness-5);
+  updateBusPanel();
+}
+
+function stepBuses() {
+  for (const r of busRoutes) {
+    const path=r.path;
+    const from=path[r.pathIdx];
+    const to  =path[r.pathIdx+1];
+    if (!from||!to) {
+      // Reached end — reverse direction
+      r.forward=!r.forward;
+      r.path=r.forward?path:[...path].reverse();
+      r.pathIdx=0; r.stepT=0;
+      continue;
+    }
+    r.stepT+=r.speed;
+    const t=Math.min(r.stepT,1);
+    const dx=to.x-from.x, dz=to.z-from.z;
+    r.mesh.position.x=from.x+dx*t;
+    r.mesh.position.z=from.z+dz*t;
+    r.mesh.position.y=0.14;
+    if (dx||dz) r.mesh.rotation.y=Math.atan2(dx,dz);
+    if (r.stepT>=1) { r.stepT=0; r.pathIdx++; }
+  }
+}
+
+// Bus stop selection state
+function handleBusClick(x,z) {
+  if (tiles[x][z].type!=='road'&&tiles[x][z].type!=='bridge') {
+    showToast('Select a road tile for bus stop',x,z,'#ffb300'); return;
+  }
+  if (!busPickingStop) {
+    busPickingStop={x,z};
+    showToast('Stop A set! Now click Stop B',x,z,'#ffcc00');
+    // Visual marker
+    const marker=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,0.05,8),new THREE.MeshLambertMaterial({color:0xffcc00}));
+    marker.position.set(x,0.2,z); marker.userData.busMarker=true; scene.add(marker);
+    setTimeout(()=>{ scene.children.filter(m=>m.userData.busMarker).forEach(m=>scene.remove(m)); },5000);
+  } else {
+    addBusRoute(busPickingStop.x,busPickingStop.z,x,z);
+    busPickingStop=null;
+    setMode('view');
+  }
+}
+
+function updateBusPanel() {
+  const list=document.getElementById('bus-routes-list');
+  const count=document.getElementById('bus-count');
+  if (list) list.innerHTML=busRoutes.map((r,i)=>
+    `<div class="bus-route-item">
+      <span style="color:#ffcc00">🚌 Route ${i+1}</span>
+      <span style="color:#6888aa">[${r.stopA.x},${r.stopA.z}] → [${r.stopB.x},${r.stopB.z}]</span>
+      <button onclick="removeBusRoute(${i})">✕</button>
+    </div>`).join('');
+  if (count) count.textContent=busRoutes.length;
+}
+
+function openBusPanel() {
+  updateBusPanel();
+  document.getElementById('bus-modal').classList.add('active');
+}
+function closeBusPanel() { document.getElementById('bus-modal').classList.remove('active'); }
+
+// Citizens near bus stops can reach farther commercial buildings
+// (implemented by boosting their effective A* via bus teleport in pickComTarget)
+function nearestBusStop(hx,hz) {
+  let best=null, bestD=Infinity;
+  for (const r of busRoutes) {
+    const dA=Math.abs(hx-r.stopA.x)+Math.abs(hz-r.stopA.z);
+    const dB=Math.abs(hx-r.stopB.x)+Math.abs(hz-r.stopB.z);
+    if (dA<3&&dA<bestD) { best={from:r.stopA,to:r.stopB}; bestD=dA; }
+    if (dB<3&&dB<bestD) { best={from:r.stopB,to:r.stopA}; bestD=dB; }
+  }
+  return best;
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  tickDayNight();
+  tickFires();
+  stepConstruct();
+  stepCitizens();
+  stepTrucks();
+  stepCars();
+  stepBuses();
+  animateRiver();
+  renderer.render(scene,camera);
+}
+animate();
+
+window.addEventListener('resize',()=>{
+  renderer.setSize(innerWidth,innerHeight);
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+});
+
+updateDemandBars();
+updateUI();
+</script>
+</body>
+</html>
