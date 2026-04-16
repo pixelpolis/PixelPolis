@@ -3030,17 +3030,22 @@ function renderWorldGrid() {
             if(onChain.forSale) delistTile(x,z); else listTileForSale(x,z); };
 
         } else if (onChain && !isMyWallet) {
-          // Owned by someone else on-chain
+          // Owned by someone else on-chain — visible to everyone
           el.classList.add('owned');
           if (onChain.forSale) el.classList.add('wt-forsale');
           const priceLabel = onChain.forSale
             ? `<div class="wt-price">🏷️ ${ethers.formatEther(onChain.price)} ETH</div>` : '';
           const raidBtn = net.connected
             ? `<button class="wt-raid" onclick="event.stopPropagation();launchRaid('${region?.owner||''}','${(region?.name||'').replace(/'/g,"\\'")}')">⚔️</button>` : '';
+          const cityLabel = onChain.name ? `<br><span style="color:#4ddb88;font-size:9px">${onChain.name}</span>` : '';
           el.innerHTML=`<div class="wt-icon">${onChain.forSale?'🏷️':'🏛️'}</div>`+
-            `<div class="wt-label">${shortAddr(onChain.owner)}<br>👥${onChain.pop||0}</div>`+
+            `<div class="wt-label">${shortAddr(onChain.owner)}${cityLabel}<br>👥${onChain.pop||0}</div>`+
             `${priceLabel}${raidBtn}`;
-          el.onclick=()=>{ if(onChain.forSale) buyTile(x,z); else if(region) viewForeignCity(x,z); };
+          el.onclick=()=>{
+            if (onChain.forSale && walletAddress) buyTile(x,z);
+            else if (onChain.forSale && !walletAddress) { showToast('Connect wallet to buy',null,null,'#ffd060'); connectWallet(); }
+            else if (region) viewForeignCity(x,z);
+          };
 
         } else {
           // Not owned on-chain — must mint (wallet connected or not)
@@ -3049,8 +3054,8 @@ function renderWorldGrid() {
             el.innerHTML=`<div class="wt-icon">🌿</div><div class="wt-label">[${x},${z}]<br>🪙 0.001 ETH</div>`;
             el.onclick=()=>mintTile(x,z);
           } else {
-            // No wallet — read only, prompt to connect
-            el.innerHTML=`<div class="wt-icon">🔒</div><div class="wt-label">[${x},${z}]<br>Connect wallet<br>to mint</div>`;
+            // No wallet — show mint price, clicking prompts connect
+            el.innerHTML=`<div class="wt-icon">🌿</div><div class="wt-label">[${x},${z}]<br>🪙 0.001 ETH<br><span style="font-size:9px;color:#445566">Connect wallet to mint</span></div>`;
             el.onclick=()=>{ showToast('Connect your wallet to buy tiles!',null,null,'#ffd060'); connectWallet(); };
           }
         }
@@ -3667,21 +3672,22 @@ function updateWalletUI() {
   }
 }
 
-// ── Load all tile owners from contract ────────────────
+// ── Load tile owners (works without wallet via public RPC) ──
 async function loadAllTileOwners() {
-  if (!tileContract) return;
   try {
-    const owners = await tileContract.getAllOwners();
+    // Use a read-only provider — no wallet needed
+    const readProvider = new ethers.JsonRpcProvider('https://mainnet.base.org');
+    const readContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, readProvider);
+    const owners = await readContract.getAllOwners();
     for (let i = 0; i < 100; i++) {
       const x = Math.floor(i / 10), z = i % 10;
       const key = `${x}_${z}`;
-      if (owners[i] !== ethers.ZeroAddress) {
-        // Fetch full info for owned tiles
-        const info = await tileContract.getTileInfo(x, z);
+      if (owners[i] && owners[i] !== ethers.ZeroAddress) {
+        const info = await readContract.getTileInfo(x, z);
         tileOwners[key] = {
           owner:   info.owner,
           forSale: info.forSale,
-          price:   info.price,   // BigInt wei
+          price:   info.price,
           name:    info.name,
           pop:     Number(info.pop),
         };
@@ -3689,6 +3695,7 @@ async function loadAllTileOwners() {
         delete tileOwners[key];
       }
     }
+    renderWorldGrid();
   } catch(e) {
     console.warn('[web3] loadAllTileOwners failed:', e.message);
   }
@@ -4344,7 +4351,10 @@ window.addEventListener('resize',()=>{
 updateDemandBars();
 updateUI();
 
-// Always start on the world map — player must pick/mint a tile to enter a city
+// Load on-chain tile ownership immediately — no wallet needed
+if (isContractDeployed()) loadAllTileOwners();
+
+// Always start on the world map
 document.getElementById('world-map-ui').classList.add('active');
 </script>
 </body>
