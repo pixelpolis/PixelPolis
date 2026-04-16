@@ -2997,58 +2997,60 @@ function renderWorldGrid() {
       el.dataset.key = key;
       el.style.position = 'relative';
 
-      const isMyWallet = onChain && walletAddress &&
+      const isMyWallet  = onChain && walletAddress &&
         onChain.owner?.toLowerCase() === walletAddress?.toLowerCase();
       const isMyAccount = region && region.owner === (playerUsername || PLAYER_ID);
 
-      if (onChain && isMyWallet) {
-        // My on-chain tile — confirmed owner, can enter city
-        el.classList.add('mine','wt-owned-me');
-        const pop = region?.cityData?.population || onChain.pop || 0;
-        const listLabel = onChain.forSale
-          ? `<div class="wt-price">Listed: ${ethers.formatEther(onChain.price)} ETH</div>` : '';
-        if (region?.thumb) {
-          el.style.backgroundImage=`url(${region.thumb})`;
-          el.style.backgroundSize='cover'; el.style.backgroundPosition='center';
-          el.style.overflow='hidden';
-          el.innerHTML=`<div class="wt-thumb-label">${region.name||'My City'} · ${pop}${listLabel}</div>`;
+      // ── CONTRACT DEPLOYED MODE ──────────────────────────
+      if (isContractDeployed()) {
+
+        if (onChain && isMyWallet) {
+          // My tile — confirmed on-chain
+          el.classList.add('mine','wt-owned-me');
+          const pop = region?.cityData?.population || onChain.pop || 0;
+          const listLabel = onChain.forSale
+            ? `<div class="wt-price">Listed: ${ethers.formatEther(onChain.price)} ETH</div>` : '';
+          if (region?.thumb) {
+            el.style.backgroundImage=`url(${region.thumb})`;
+            el.style.backgroundSize='cover'; el.style.backgroundPosition='center';
+            el.style.overflow='hidden';
+            el.innerHTML=`<div class="wt-thumb-label">${region.name||'My City'} · ${pop}${listLabel}</div>`;
+          } else {
+            el.innerHTML=`<div class="wt-icon">🏙️</div><div class="wt-label">${region?.name||'My Tile'}<br>👥${pop}</div>${listLabel}`;
+          }
+          el.onclick=()=>{ if(isMyAccount) enterCity(x,z); else { claimRegion(x,z); enterCity(x,z); } };
+          el.oncontextmenu=(e)=>{ e.preventDefault();
+            if(onChain.forSale) delistTile(x,z); else listTileForSale(x,z); };
+
+        } else if (onChain && !isMyWallet) {
+          // Owned by someone else on-chain
+          el.classList.add('owned');
+          if (onChain.forSale) el.classList.add('wt-forsale');
+          const priceLabel = onChain.forSale
+            ? `<div class="wt-price">🏷️ ${ethers.formatEther(onChain.price)} ETH</div>` : '';
+          const raidBtn = net.connected
+            ? `<button class="wt-raid" onclick="event.stopPropagation();launchRaid('${region?.owner||''}','${(region?.name||'').replace(/'/g,"\\'")}')">⚔️</button>` : '';
+          el.innerHTML=`<div class="wt-icon">${onChain.forSale?'🏷️':'🏛️'}</div>`+
+            `<div class="wt-label">${shortAddr(onChain.owner)}<br>👥${onChain.pop||0}</div>`+
+            `${priceLabel}${raidBtn}`;
+          el.onclick=()=>{ if(onChain.forSale) buyTile(x,z); else if(region) viewForeignCity(x,z); };
+
         } else {
-          el.innerHTML=`<div class="wt-icon">🏙️</div><div class="wt-label">${region?.name||'My Tile'}<br>👥${pop}</div>${listLabel}`;
-        }
-        el.onclick=()=>{ if(isMyAccount) enterCity(x,z); else { claimRegion(x,z); enterCity(x,z); } };
-        el.oncontextmenu=(e)=>{ e.preventDefault();
-          if(onChain.forSale) delistTile(x,z); else listTileForSale(x,z); };
-
-      } else if (onChain && !isMyWallet) {
-        // Someone else's on-chain tile
-        el.classList.add('owned');
-        if (onChain.forSale) el.classList.add('wt-forsale');
-        const priceLabel = onChain.forSale
-          ? `<div class="wt-price">🏷️ ${ethers.formatEther(onChain.price)} ETH</div>` : '';
-        const raidBtn = net.connected
-          ? `<button class="wt-raid" onclick="event.stopPropagation();launchRaid('${region?.owner||''}','${(region?.name||'').replace(/'/g,"\'")}')">⚔️</button>` : '';
-        el.innerHTML=`<div class="wt-icon">${onChain.forSale?'🏷️':'🏛️'}</div>`+
-          `<div class="wt-label">${shortAddr(onChain.owner)}<br>👥${onChain.pop||0}</div>`+
-          `${priceLabel}${raidBtn}`;
-        el.onclick=()=>{ if(onChain.forSale) buyTile(x,z); else if(region) viewForeignCity(x,z); };
-
-      } else if (!onChain && isContractDeployed()) {
-        // Contract deployed — tile must be minted, not free claimed
-        if (web3Enabled) {
-          // Wallet connected — show mint button
-          el.innerHTML=`<div class="wt-icon">🌿</div><div class="wt-label">[${x},${z}]<br>0.001 ETH</div>`;
-          el.onclick=()=>mintTile(x,z);
-        } else {
-          // Wallet not connected — prompt to connect first
-          el.innerHTML=`<div class="wt-icon">🌿</div><div class="wt-label">[${x},${z}]<br>🦊 Connect wallet<br>to mint (0.001 ETH)</div>`;
-          el.onclick=()=>{
-            showToast('Connect your wallet first!', null, null, '#ffd060');
-            connectWallet();
-          };
+          // Not owned on-chain — must mint (wallet connected or not)
+          if (walletAddress) {
+            // Wallet connected — mint it
+            el.innerHTML=`<div class="wt-icon">🌿</div><div class="wt-label">[${x},${z}]<br>🪙 0.001 ETH</div>`;
+            el.onclick=()=>mintTile(x,z);
+          } else {
+            // No wallet — read only, prompt to connect
+            el.innerHTML=`<div class="wt-icon">🔒</div><div class="wt-label">[${x},${z}]<br>Connect wallet<br>to mint</div>`;
+            el.onclick=()=>{ showToast('Connect your wallet to buy tiles!',null,null,'#ffd060'); connectWallet(); };
+          }
         }
 
-      } else if (region && !isContractDeployed()) {
-        // Local game ownership (no contract)
+      // ── NO CONTRACT — FREE LOCAL MODE ──────────────────
+      } else {
+
         if (isMyAccount) {
           el.classList.add('mine');
           const pop=region.cityData?.population||0, m=region.cityData?.money||0;
@@ -3061,19 +3063,20 @@ function renderWorldGrid() {
             el.innerHTML=`<div class="wt-icon">🏙️</div><div class="wt-label">${region.name}<br>👥${pop} 💰$${m}</div>`;
           }
           el.onclick=()=>enterCity(x,z);
-        } else {
+
+        } else if (region) {
           el.classList.add('owned');
           const pop=region.cityData?.population||0;
           const raidBtn=net.connected
-            ?`<button class="wt-raid" onclick="event.stopPropagation();launchRaid('${region.owner}','${region.name.replace(/'/g,"\'")}')">⚔️</button>`:'';
+            ?`<button class="wt-raid" onclick="event.stopPropagation();launchRaid('${region.owner}','${region.name.replace(/'/g,"\\'")}')">⚔️</button>`:'';
           el.innerHTML=`<div class="wt-icon">🏛️</div><div class="wt-label">${region.name}<br>${region.owner}<br>👥${pop}</div>${raidBtn}`;
           el.onclick=()=>viewForeignCity(x,z);
-        }
 
-      } else {
-        // Empty — free claim
-        el.innerHTML=`<div class="wt-icon">🌿</div><div class="wt-label">Empty<br>[${x},${z}]</div>`;
-        el.onclick=()=>claimRegion(x,z);
+        } else {
+          // Truly empty — free claim
+          el.innerHTML=`<div class="wt-icon">🌿</div><div class="wt-label">Empty<br>[${x},${z}]</div>`;
+          el.onclick=()=>claimRegion(x,z);
+        }
       }
       grid.appendChild(el);
     }
@@ -3081,6 +3084,12 @@ function renderWorldGrid() {
 }
 // ── Claim empty region ────────────────────────────────
 function claimRegion(x, z) {
+  // If contract is deployed, tiles must be purchased — no free claims
+  if (isContractDeployed()) {
+    if (!walletAddress) { connectWallet(); return; }
+    mintTile(x, z);
+    return;
+  }
   const key = `${x}_${z}`;
   if (world.regions[key]) return;
   const owner = playerUsername || PLAYER_ID;
